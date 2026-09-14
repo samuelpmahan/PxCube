@@ -8,7 +8,7 @@ import {root} from '../../../local/run.mjs';
 import {checkShell} from './check-shell.mjs';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
 const browser=await chromium.launch({headless:true,...(process.env.CHROME_BIN?{executablePath:process.env.CHROME_BIN}:{})});
-const evidence=path.join(root,'evidence/local-pages-parity/d02e7a7');fs.mkdirSync(evidence,{recursive:true});
+const evidence=path.join(root,process.env.PXCUBE_EVIDENCE_DIR ?? 'evidence/local-pages-parity/d02e7a7');fs.mkdirSync(evidence,{recursive:true});
 const checks=[],errors=[],requests=[];
 const latest=JSON.parse(fs.readFileSync(path.join(root,'.pxcube/latest.json'))),site=path.join(root,latest.site);
 const server=http.createServer((req,res)=>{

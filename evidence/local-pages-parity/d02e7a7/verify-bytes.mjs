@@ -4,9 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { verifyReceipt } from '../../../crisp/lib/verifier.mjs';
+import { canonical } from '../../../tidy/manifest.mjs';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(here, '../../..');
+const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(scriptDirectory, '../../..');
+const here = process.env.PXCUBE_EVIDENCE_DIR ? path.resolve(root, process.env.PXCUBE_EVIDENCE_DIR) : scriptDirectory;
+fs.mkdirSync(here, { recursive: true });
 const read = p => JSON.parse(fs.readFileSync(p, 'utf8'));
 const save = (p, v) => fs.writeFileSync(path.join(here, p), JSON.stringify(v, null, 2) + '\n');
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -36,7 +39,7 @@ const pagesHtml = remoteIndex.bytes.toString();
 const localState = state(localHtml), pagesState = state(pagesHtml);
 save('local-state.json', localState); save('pages-state.json', pagesState);
 const report = {
-  observedAt: new Date().toISOString(), pages: remote, workflowRun: 34897594224,
+  observedAt: new Date().toISOString(), pages: remote, workflowRun: Number(process.env.WORKFLOW_RUN_ID || 34897594224),
   localHead: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
   localBranch: execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim(),
   localRun: latest, state: {}, shell: [], experiences: [], supportingFiles: [], requests,
@@ -52,7 +55,8 @@ for (const file of ['shell.css', 'shell.mjs']) {
 }
 for (const file of ['neat.html', 'pxcube-run.json']) {
   const deployed = await get(file);
-  report.supportingFiles.push({ file, pagesStatus: deployed.status, localExists: fs.existsSync(path.join(site, file)) });
+  const localFile = path.join(site, file), localExists = fs.existsSync(localFile);
+  report.supportingFiles.push({ file, pagesStatus: deployed.status, localExists, sameBytes: localExists && deployed.bytes.equals(fs.readFileSync(localFile)) });
 }
 for (const id of localState.packagedIds) {
   const prefix = `experiences/${id}/`;
@@ -83,11 +87,26 @@ for (const id of localState.packagedIds) {
   report.experiences.push(entry); save('byte-results.json', report);
   console.log(JSON.stringify({ id, same: entry.identicalChunks, total: chunks.length, validation: validation.ok, contract: entry.contractMatches }));
 }
+// Compare the retained definitions and outputs. Keep each run's own identity
+// and measured duration in the evidence, without requiring those to be equal.
+const normalizeRun = (value, runId) => JSON.parse(JSON.stringify(value).replaceAll(runId || '<absent>', '<assembly-run>'));
+const outcomes = value => value.results.map(({ build, ...result }) => ({ ...result, build: build && { ...build, durationMs: '<measured-per-build>' } }));
+report.ntc = {
+  sourceCommitMatches: localState.sourceCommit === pagesState.sourceCommit && !!pagesState.sourceCommit,
+  workMatches: canonical(localState.work) === canonical(pagesState.work),
+  typesMatch: canonical(localState.types) === canonical(pagesState.types),
+  manifestsMatch: canonical(normalizeRun(localState.manifests, localState.runId)) === canonical(normalizeRun(pagesState.manifests, pagesState.runId)),
+  outcomesMatch: canonical(outcomes(localState)) === canonical(outcomes(pagesState)),
+  sharedToolsHashMatches: localState.sharedToolsHash === pagesState.sharedToolsHash && !!pagesState.sharedToolsHash,
+};
 report.summary = { allRemoteChunksVerified: report.experiences.every(e => e.validation.ok && e.chunks.every(c => c.pagesStatus === 200)),
   allExperienceBytesMatch: report.experiences.every(e => e.localChunkCount === e.pagesChunkCount && e.identicalChunks === e.pagesChunkCount),
   allContractsMatch: report.experiences.every(e => e.contractMatches),
   allEffectiveContractsMatch: report.experiences.every(e => e.effectiveContractMatches),
   totalChunks: report.experiences.reduce((n, e) => n + e.pagesChunkCount, 0),
-  ntcStateMatches: JSON.stringify(report.state.local) === JSON.stringify(report.state.pages) };
+  ntcStateMatches: JSON.stringify(report.state.local) === JSON.stringify(report.state.pages),
+  ntcSemanticParity: Object.values(report.ntc).every(Boolean),
+  allSupportingFilesAvailable: report.supportingFiles.every(file => file.localExists && file.pagesStatus === 200),
+};
 save('byte-results.json', report);
 console.log(JSON.stringify({ summary: report.summary, state: report.state, supportingFiles: report.supportingFiles }, null, 2));
