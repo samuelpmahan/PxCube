@@ -35,7 +35,8 @@ Each THING runs sandboxed in its own frame. A crashing experiment cannot sink th
 ## Layout
 
 - `spec/` — the app/hypervisor contract
-- `launcher/` — the Pages launcher generator plus an example manifest
-- `workflow/` — the Actions workflow (thin crisp wrapper)
+- `launcher/` — the Pages launcher generator
+- `experiences/` — the apps. Each ships its own THING via `experience.json`
+- `.github/workflows/` — the Actions workflow (thin crisp wrapper)
 - `package/` — crisp's build+package pipeline (arriving)
 - `mock-pxc/` and `fixtures/` — mock backend and smoke tests (arriving)
