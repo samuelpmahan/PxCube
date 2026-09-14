@@ -9,7 +9,7 @@ export const spec = (id = 'build-bag') => ({
   experience: {
     title: id === 'build-bag' ? 'BuildBag' : 'Another experience',
     description: 'A generated sandbox frame; domain calculations are still to come.',
-    mounts: ['shelf'], build: 'node build.mjs', outDir: 'dist',
+    mounts: ['shelf'], build: 'node build.mjs', outDir: 'dist', entry: 'index.html',
     sandbox: ['allow-scripts', 'allow-same-origin', 'allow-forms'],
     scaffold: {
       template: 'sandbox@1', world: 'shelf',

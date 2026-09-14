@@ -22,6 +22,7 @@ import {
   readdirSync, readFileSync, mkdirSync,
   writeFileSync, existsSync, renameSync, rmSync,
 } from 'node:fs';
+import { loadManifest } from '../crisp/lib/manifest.mjs';
 import { join } from 'node:path';
 
 const EXP = 'experiences';
@@ -53,7 +54,12 @@ for (const ent of readdirSync(EXP, { withFileTypes: true })) {
   if (!ent.isDirectory()) continue;
   const mf = join(EXP, ent.name, 'experience.json');
   if (!existsSync(mf)) continue;
-  manifests.push({ id: ent.name, ...JSON.parse(readFileSync(mf, 'utf8')) });
+  // Resolve through crisp: tidy-typed experiences declare their manifest in
+  // the tidy registry, not in experience.json. The launcher renders the
+  // resolved manifest, so cards and accordions show the real title, entry,
+  // sandbox tokens, and mounts.
+  const resolved = await loadManifest(join(EXP, ent.name));
+  manifests.push({ id: ent.name, ...resolved });
 }
 
 // The crisp receipt staged next to each THING's chunks, when the build job

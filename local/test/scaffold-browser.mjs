@@ -12,7 +12,7 @@ let browser, host;
 fs.mkdirSync(evidence, { recursive: true });
 try {
   assert.equal(fs.existsSync(path.join(repo, 'experiences/build-bag')), false);
-  const generated = cli(repo, 'scaffold', 'pxcube-build-bag');
+  const generated = cli(repo, 'scaffold', '--from-tidy', 'pxcube-build-bag');
   assert.equal(generated.status, 0, generated.stderr);
   const { site, report } = await build(repo);
   assert.equal(report.results[0].ok, true, report.results[0].error);

@@ -33,7 +33,7 @@ test('crisp generates reproducibly from tidy, supports a second id, and refuses 
     await assert.rejects(scaffoldExperience(a, 'pxcube-build-bag'), /exists/);
     assert.match(fs.readFileSync(authored, 'utf8'), /my next contribution/);
     setManifest(a, { 'pxcube-build-bag': spec(), 'pxcube-second': spec('second') });
-    assert.equal(cli(a, 'scaffold', 'pxcube-second').status, 0);
+    assert.equal(cli(a, 'scaffold', '--from-tidy', 'pxcube-second').status, 0);
     assert.ok(fs.existsSync(path.join(a, 'experiences/second/app.mjs')));
     setManifest(a, { broken: { ...spec('broken'), experience: { ...spec().experience, scaffold: { ...spec().experience.scaffold, template: 'missing' } } } });
     await assert.rejects(scaffoldExperience(a, 'broken'), /template/);
@@ -44,7 +44,7 @@ test('crisp generates reproducibly from tidy, supports a second id, and refuses 
 test('CLI scaffold -> tidy-fed package -> launcher; a changed manifest changes the next build', async () => {
   const repo = workspace();
   try {
-    const result = cli(repo, 'scaffold', 'pxcube-build-bag');
+    const result = cli(repo, 'scaffold', '--from-tidy', 'pxcube-build-bag');
     assert.equal(result.status, 0, result.stderr);
     const before = fs.readFileSync(path.join(repo, 'experiences/build-bag/app.mjs'));
     const first = await build(repo);

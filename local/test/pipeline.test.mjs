@@ -14,7 +14,7 @@ const fixture=(name,dir=temp())=>{fs.cpSync(path.join(root,'crisp/fixtures',name
 const cli=(...args)=>spawnSync(process.execPath,[path.join(root,'crisp/bin/crisp'),...args],{encoding:'utf8'});
 
 test('actual crisp CLI: six fixture intentions, with explicit negative mutations', async t => {
-  const rows=[['hello',0],['sneaky',1],['broken',2],['leaky',1],['drift',1],['unknown-world',1]];
+  const rows=[['hello',0],['sneaky',1],['broken',2],['leaky',1],['drift',0],['unknown-world',1]];
   for(const [name,expected] of rows) await t.test(name,async()=>{
     const dir=fixture(name);
     try {

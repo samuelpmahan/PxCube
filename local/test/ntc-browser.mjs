@@ -13,7 +13,7 @@ try {
   let baseUrl = 'http://127.0.0.1:4321/';
   if (process.env.NTC_FIXTURE === '1') {
     fixtureRepo = workspace();
-    const generated = cli(fixtureRepo, 'scaffold', 'pxcube-build-bag');
+    const generated = cli(fixtureRepo, 'scaffold', '--from-tidy', 'pxcube-build-bag');
     assert.equal(generated.status, 0, generated.stderr);
     const built = await build(fixtureRepo); assert.ok(built.report.results.every(result => result.ok));
     fixtureServer = serve(fixtureRepo, { port: 0 });

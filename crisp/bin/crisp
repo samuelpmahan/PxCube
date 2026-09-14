@@ -4,6 +4,7 @@ import { PackageError, packageApp, checkApp } from '../lib/packager.mjs';
 import { scaffoldApp } from '../lib/scaffolder.mjs';
 import { scaffoldExperience } from '../lib/scaffold.mjs';
 import { verifyReceipt } from '../lib/verifier.mjs';
+import { loadManifest } from '../lib/manifest.mjs';
 
 const VERSION = '0.2.0';
 
@@ -22,6 +23,7 @@ function usage() {
     '      emits content-addressed chunks and a wiring-manifest receipt',
     '  check <app-dir> [--pxc <path>]      validate manifest, mounts and source hash',
     '  verify <receipt.json> <chunks-dir>  re-hash deployed chunks against the receipt',
+    '  resolve <app-dir>                   print the resolved manifest (tidy types included)',
     '  --help, -h                          show this help',
     '  --version, -v                       show version',
     '',
@@ -97,6 +99,12 @@ async function main() {
         process.stderr.write(`crisp: verify: ${m.path}: ${m.reason}\n`);
       }
       process.exit(1);
+    }
+    if (command === 'resolve') {
+      if (!a) fail(3, usage());
+      const manifest = await loadManifest(resolve(a));
+      process.stdout.write(JSON.stringify(manifest, null, 2) + '\n');
+      process.exit(0);
     }
     if ((command !== 'package' && command !== 'check') || !a) {
       fail(3, usage());

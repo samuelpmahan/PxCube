@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: crisp self-test
         # The packager must be green before it touches any THING.
         run: node crisp/test/run.mjs
@@ -58,11 +58,14 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - id: matrix
         run: |
           matrix=$(for d in experiences/*/; do
             [ -f "${d}experience.json" ] || continue
-            jq -c --arg id "$(basename "$d")" '. + {id: $id}' "${d}experience.json"
+            node crisp/bin/crisp resolve "$d" | jq -c --arg id "$(basename "$d")" '. + {id: $id}'
           done | jq -cs '.')
           echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
 
@@ -78,7 +81,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: package THING with crisp
         run: |
           node crisp/bin/crisp package "experiences/${{ matrix.exp.id }}"
@@ -102,7 +105,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: verify local adapter and crisp fixtures
         run: node --test local/test/*.test.mjs
       - name: install the browser test runner
@@ -144,7 +147,7 @@ jobs:
           path: staging
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: assemble launcher page
         run: node launcher/build-launcher.mjs
       - uses: actions/upload-pages-artifact@v4
