@@ -1,6 +1,6 @@
 # Local PxCube: the same packaging program, one local command
 
-Candidate branch: `codex/local-pages`, based on Muse's `d1de6847` snapshot.
+Candidate branch: `codex/local-pages`.
 Node 24; no package installation or global hooks needed.
 
 This document describes the downstream local adapter, not the full ecosystem's
@@ -12,7 +12,7 @@ node local/run.mjs dev
 ```
 
 Open `http://127.0.0.1:4321/`. The launcher contains Hello, MockPxC,
-UploadDiscToShelf, and ExploreShelf. The two Studio imports and their boundaries
+UploadDiscToShelf, ExploreShelf, and the BuildBag scaffold. The two Studio imports and their boundaries
 are described in [studio-sandboxes.md](studio-sandboxes.md). Select
 MockPxC opens the interactive `mock.shelf` sandbox. Edit its bag name, then
 choose Open interactive sandbox to resume it or New test run to create a fresh
@@ -41,9 +41,35 @@ a person editing a world. Failed apps remain visible beside working ones.
   unchanged source after build, and actual output-byte hashes.
 - **launcher**: the same generator assembles the same static apps for both
   `dev` and `local/ci.mjs`. The local HTTP server only serves those files. The
-  workflow now calls the shared program, preserving a red job for a failed app
-  while permitting healthy sibling artifacts to deploy. This branch has not
-  been pushed or run by GitHub Actions; local verification is not a CI claim.
+  workflow assembles its matrix packages through `local/ci.mjs --staged staging`,
+  preserving a red job for a failed app while permitting healthy siblings to deploy.
+
+## Local / Pages assembly
+
+Both routes call `build()` in `local/run.mjs`. Local preview runs crisp on fresh
+source copies. The workflow's matrix runs crisp independently for each Experience,
+then supplies those packages to the same pipeline:
+
+```sh
+node local/ci.mjs --staged staging
+```
+
+`staging/exp-<id>/` contains the built chunks and `receipt.json`. Assembly verifies
+the chunks against that receipt and imports them; it does not run the build again
+or replace the producer's timing and testimony. Missing or corrupted packages
+stay failed. Source hashes remain provenance, not a promotion or source-freeze gate.
+
+The common pipeline supplies the NTC work/type/build snapshot, `neat.html`,
+`pxcube-run.json`, and the receipt accordions. Every successful result links to
+`experiences/<id>/receipt.json`. The extended `pxcube-receipt.json` URL remains
+available for existing consumers. Independent assembly run IDs differ; the
+packages, definitions, and inspectable surfaces must agree for the same inputs.
+
+The workflow publishes an artifact only after the assembler emits `site-ready`.
+A partial build can therefore deploy healthy siblings while staying red; a fatal
+assembly error cannot publish a stale output directory. Browser-test deployment
+policy is unchanged. `local/test/assembly-parity.test.mjs` checks both routes,
+failure isolation, receipt links, and absence of duplicate build execution.
 
 First discovery registers an app as Exp. A manifest's `track: clean` cannot
 promote itself. Source or shared packaging-tool changes surface as registration

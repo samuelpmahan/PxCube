@@ -135,6 +135,8 @@ jobs:
 
   assemble:
     needs: [discover, build]
+    outputs:
+      site-ready: ${{ steps.assemble.outputs.site-ready }}
     # Ship what built; mark the rest failed on the launcher. Never let one
     # red THING cancel the whole Page.
     if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'failure') }}
@@ -148,14 +150,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: assemble launcher page
-        run: node launcher/build-launcher.mjs
+      - name: assemble the same NTC site as local preview
+        id: assemble
+        continue-on-error: true
+        run: node local/ci.mjs --staged staging
       - uses: actions/upload-pages-artifact@v4
+        if: ${{ !cancelled() && steps.assemble.outputs.site-ready == 'true' }}
         with:
           path: dist
+      - name: keep failed package attempts red
+        if: ${{ !cancelled() && steps.assemble.outcome == 'failure' }}
+        run: exit 1
 
   deploy:
     needs: assemble
+    if: ${{ !cancelled() && needs.assemble.outputs.site-ready == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages

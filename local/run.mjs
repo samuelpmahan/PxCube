@@ -40,7 +40,32 @@ function hashes(directory) {
 }
 function apps(repo) { return fs.readdirSync(path.join(repo, 'experiences'), { withFileTypes: true }).filter(e => e.isDirectory() && fs.existsSync(path.join(repo, 'experiences', e.name, 'experience.json'))).map(e => e.name).sort(); }
 
-export async function build(repo = root, { refreshRegistry = false } = {}) {
+// Matrix jobs have already run crisp. Assemble their testified bytes without
+// rerunning a build or treating a missing artifact as a successful package.
+async function importPackage(staged, destination, manifest, verifyReceipt) {
+  const receiptPath = path.join(staged, 'receipt.json');
+  if (!fs.existsSync(receiptPath)) throw Error('No package receipt supplied by the build job.');
+  const receipt = read(receiptPath);
+  if (receipt.build?.exitCode !== 0 || receipt.build?.timedOut || !Array.isArray(receipt.chunks) || !receipt.chunks.length) throw Error('Package receipt does not testify to a successful build with chunks.');
+  const seen = new Set();
+  for (const chunk of receipt.chunks) {
+    if (typeof chunk.path !== 'string' || path.isAbsolute(chunk.path) || chunk.path.split(/[\\/]/).some(p => !p || p === '..' || p === '.') || seen.has(chunk.path)) throw Error('Invalid or duplicate package chunk path.');
+    if (['receipt.json', 'pxcube-receipt.json'].includes(chunk.path)) throw Error('Package chunk uses a reserved receipt filename.');
+    seen.add(chunk.path);
+  }
+  const verified = await verifyReceipt(receiptPath, staged);
+  if (!verified.ok) throw Error(`Package chunks failed receipt verification: ${JSON.stringify(verified.mismatches)}`);
+  if (!receipt.entryChunk || !receipt.chunks.some(c => c.path === 'index.html' && c.sha256 === receipt.entryChunk)) throw Error('Package receipt does not wire index.html to its entry chunk.');
+  for (const chunk of receipt.chunks) {
+    const output = path.join(destination, manifest.outDir, chunk.path);
+    fs.mkdirSync(path.dirname(output), { recursive: true });
+    fs.copyFileSync(path.join(staged, chunk.path), output);
+  }
+  write(path.join(destination, '.crisp/receipt.json'), receipt);
+  return receipt;
+}
+
+export async function build(repo = root, { refreshRegistry = false, stagedRoot = null } = {}) {
   const state = path.join(repo, '.pxcube'); fs.mkdirSync(state, { recursive: true });
   const lock = path.join(state, 'build.lock'); const fd = fs.openSync(lock, 'wx');
   const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
@@ -53,6 +78,7 @@ export async function build(repo = root, { refreshRegistry = false } = {}) {
     // Builds consume the same retained manifest snapshot as their source.
     if (fs.existsSync(path.join(repo, '.tidy'))) copyTree(path.join(repo, '.tidy'), path.join(work, '.tidy'));
     const { packageApp } = await import(pathToFileURL(path.join(work, 'crisp/lib/packager.mjs')).href);
+    const { verifyReceipt } = await import(pathToFileURL(path.join(work, 'crisp/lib/verifier.mjs')).href);
     const registryPath = path.join(repo, '.tidy/pxcube.json');
     const registry = fs.existsSync(registryPath) ? read(registryPath) : { schemaVersion: 1, apps: {} };
     if (registry.schemaVersion !== 1 || !registry.apps || Array.isArray(registry.apps)) throw Error('Unsupported tidy app registry.');
@@ -81,21 +107,25 @@ export async function build(repo = root, { refreshRegistry = false } = {}) {
         if (!['exp', 'clean'].includes(registration.track)) throw Error('Invalid tidy registration track.');
         drift = registration.sourceHash !== sourceHash || registration.sharedToolsHash !== sharedToolsHash;
         lineage.types[`pxcube-${id}`] ??= { version: /^\d+\.\d+\.\d+$/.test(manifest.version ?? '') ? manifest.version : '0.0.0', root: `experiences/${id}`, clean: 'clean', experiments: 'exp', tests: [] };
-        const receipt = await packageApp(destination);
+        const receipt = stagedRoot
+          ? await importPackage(path.join(stagedRoot, `exp-${id}`), destination, manifest, verifyReceipt)
+          : await packageApp(destination);
         const index = path.join(destination, manifest.outDir, 'index.html');
         if (!fs.existsSync(index) || !fs.statSync(index).isFile()) throw Error('A Page needs index.html; crisp output enumeration alone is insufficient.');
         if (await hashAppSources(destination, await loadManifest(destination)) !== sourceHash) throw Error('Build changed its recorded source; inspect this attempt.');
         const stage = path.join(assembly, 'staging', `exp-${id}`);
         copyTree(path.join(destination, manifest.outDir), stage);
         const outputHashes = hashes(stage);
+        write(path.join(stage, 'receipt.json'), receipt);
+        // Retain the existing extended receipt URL for current consumers.
         write(path.join(stage, 'pxcube-receipt.json'), { ...receipt, runId, sharedToolsHash, outputHashes, tidy: { track: registration.track, changedSinceRegistration: drift } });
-        results.push({ id, ok: true, sourceHash, outputHashes, build: receipt.build, receipt: path.relative(run, path.join(destination, '.crisp/receipt.json')), drift });
+        results.push({ id, ok: true, sourceHash, outputHashes, build: receipt.build, receipt: `experiences/${id}/receipt.json`, drift });
       } catch (error) {
         results.push({ id, ok: false, sourceHash: sourceHash ?? null, error: String(error), drift });
         fs.mkdirSync(destination, { recursive: true }); write(path.join(destination, 'failure.json'), results.at(-1));
       }
       const result = results.at(-1);
-      write(path.join(assembly, 'experiences', id, 'experience.json'), { ...(manifest ?? {}), id, title: manifest?.title ?? id, track: registration?.track === 'clean' && !drift ? 'clean' : 'exp', registry: { registeredSourceHash: registration?.sourceHash ?? null, currentSourceHash: sourceHash ?? null, changedSinceRegistration: drift }, attempt: { runId, ok: result.ok, error: result.error ?? null, receipt: result.ok ? `experiences/${id}/pxcube-receipt.json` : null } });
+      write(path.join(assembly, 'experiences', id, 'experience.json'), { ...(manifest ?? {}), id, title: manifest?.title ?? id, track: registration?.track === 'clean' && !drift ? 'clean' : 'exp', registry: { registeredSourceHash: registration?.sourceHash ?? null, currentSourceHash: sourceHash ?? null, changedSinceRegistration: drift }, attempt: { runId, ok: result.ok, error: result.error ?? null, receipt: result.ok ? result.receipt : null } });
     }
     write(registryPath, registry); write(lineagePath, lineage);
     const ledger = path.join(run, 'ledger');

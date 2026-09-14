@@ -4,13 +4,13 @@ import path from 'node:path';
 import { root, build, serve } from '../run.mjs';
 import { workspace, cli } from './scaffold-helpers.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
-const evidence = path.join(root, 'evidence/ntc-console'); fs.mkdirSync(evidence, { recursive: true });
+const evidence = path.join(root, process.env.PXCUBE_EVIDENCE_DIR ?? 'evidence/ntc-console'); fs.mkdirSync(evidence, { recursive: true });
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {}) });
 const errors = [], checks = [];
 let fixtureRepo, fixtureServer;
 const pass = text => { checks.push(text); console.log('PASS', text); };
 try {
-  let baseUrl = 'http://127.0.0.1:4321/';
+  let baseUrl = process.env.PXCUBE_BASE_URL ?? 'http://127.0.0.1:4321/';
   if (process.env.NTC_FIXTURE === '1') {
     fixtureRepo = workspace();
     const generated = cli(fixtureRepo, 'scaffold', '--from-tidy', 'pxcube-build-bag');
@@ -27,6 +27,20 @@ try {
   const artifact = await page.evaluate(() => JSON.parse(document.getElementById('ntc-state').textContent));
   assert.ok(artifact.work.some(item => item.id === 'PXCUBE-build-bag'));
   assert.ok(artifact.results.every(result => result.ok));
+  assert.equal(artifact.results.length, artifact.packagedIds.length);
+  assert.ok(Object.keys(artifact.types).length > 0);
+  const board = await page.request.get(new URL('neat.html', baseUrl).href);
+  assert.equal(board.status(), 200); assert.match(await board.text(), /PXCUBE-build-bag/);
+  const report = await page.request.get(new URL('pxcube-run.json', baseUrl).href);
+  assert.equal(report.status(), 200); assert.equal((await report.json()).runId, artifact.runId);
+  for (const result of artifact.results) {
+    assert.equal(result.receipt, `experiences/${result.id}/receipt.json`);
+    const receipt = await page.request.get(new URL(result.receipt, baseUrl).href);
+    assert.equal(receipt.status(), 200);
+    assert.equal((await receipt.json()).build.exitCode, 0);
+  }
+  assert.equal(await page.locator('details.manifest h4').filter({ hasText: 'wiring manifest, crisp receipt' }).count(), artifact.packagedIds.length);
+  pass('the assembled artifact supplies its work board, run record, tidy types, and every receipt link');
   assert.equal(await page.locator('#mount-count').textContent(), '0');
   assert.deepEqual(await page.evaluate(() => window.pxCubeControl.inspect().frames), []);
   await page.screenshot({ path: path.join(evidence, 'overview.png') });
