@@ -12,9 +12,12 @@
 # This file is a thin wrapper by design. All build, test, and package logic
 # lives in crisp/; this workflow only calls it. crisp's own test suite runs
 # first: a red packager blocks the whole Page.
+#
+# Browser coverage (scaffold, NTC console, studio sandboxes) runs in its own
+# job. It never blocks the Page, but its results are always uploaded, so a
+# red browser run stays visible instead of silently vanishing.
 
 name: experiences
-
 on:
   push:
     branches: [main]
@@ -22,14 +25,21 @@ on:
       - 'experiences/**'
       - 'launcher/**'
       - 'crisp/**'
+      - 'tidy/**'
+      - 'mock-pxc/**'
+      - 'local/**'
+      - 'vendor/**'
+      - '.neat/**'
+      - '.tidy/**'
       - '.github/workflows/experiences.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
+concurrency:
+  group: pages
+  cancel-in-progress: false
 jobs:
   crisp-selftest:
     runs-on: ubuntu-latest
@@ -45,10 +55,10 @@ jobs:
   discover:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
-      - id: set-matrix
+      - id: matrix
         run: |
           matrix=$(for d in experiences/*/; do
             [ -f "${d}experience.json" ] || continue
@@ -83,6 +93,42 @@ jobs:
           name: exp-${{ matrix.exp.id }}
           path: staging/${{ matrix.exp.id }}
           if-no-files-found: error
+
+  browser-tests:
+    needs: [crisp-selftest]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: verify local adapter and crisp fixtures
+        run: node --test local/test/*.test.mjs
+      - name: install the browser test runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pxcube-browser" --no-save playwright@1.62.1
+          node "$RUNNER_TEMP/pxcube-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: generate and exercise a sandbox through crisp
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/pxcube-browser/node_modules/playwright/index.mjs
+        run: node local/test/scaffold-browser.mjs
+      - name: inspect the NTC console and retain an Experience across views
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/pxcube-browser/node_modules/playwright/index.mjs
+          NTC_FIXTURE: '1'
+        run: node local/test/ntc-browser.mjs
+      - name: same packaging program as local preview
+        run: node local/ci.mjs
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: pxcube-browser-results
+          path: |
+            .pxcube/runs/
+            evidence/build-bag-scaffold/
+            evidence/ntc-console/
+          include-hidden-files: true
 
   assemble:
     needs: [discover, build]

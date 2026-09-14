@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PxCube · NTC workspace</title><link rel="stylesheet" href="./shell.css"></head>
+<body>
+  <header id="control-header">
+    <button class="brand" data-view="experiences">PxCube <span>NTC workspace</span></button>
+    <div class="identity"><span>Artifact</span> <code id="artifact-id">—</code><span>HEAD</span> <code id="source-id">—</code></div>
+    <button id="refresh-build" hidden>New build ready · reload</button>
+  </header>
+  <aside id="navigation">
+    <p class="eyebrow">Control layer</p>
+    <button class="nav-button selected" data-view="experiences">Experiences <span id="experience-count"></span></button>
+    <button class="nav-button" data-view="work">neat <small>Work</small></button>
+    <button class="nav-button" data-view="manifests">tidy <small>Manifests</small></button>
+    <button class="nav-button" data-view="builds">crisp <small>Builds</small></button>
+    <button class="nav-button" data-view="mounts">Mounts <span id="mount-count">0</span></button>
+    <div class="nav-section"><p class="eyebrow">Experiences</p><div id="experience-nav"></div></div>
+    <div class="nav-foot"><span id="frame-count">0 opened frames</span><p>Switch views freely.<br>Opened contexts stay here.</p></div>
+  </aside>
+  <main id="control-main">
+    <section id="ntc-strip" aria-label="NTC build path">
+      <button data-view="work"><span class="stage-name">neat</span><span>Work defines the task</span><strong id="work-summary">—</strong></button>
+      <button data-view="manifests"><span class="stage-name">tidy</span><span>Manifests define the build</span><strong id="manifest-summary">—</strong></button>
+      <button data-view="builds"><span class="stage-name">crisp</span><span>Builds produce the artifact</span><strong id="build-summary">—</strong></button>
+    </section>
+    <div id="surface">
+      <section id="experience-panel" class="control-panel">
+        <div class="section-heading"><div><p class="eyebrow">Workspace / experiences</p><h1>Experiences</h1><p>Open a sandbox. Its work, manifest, build and mounts remain in reach.</p></div><span class="pill" id="artifact-status"></span></div>
+        <nav id="tabs" aria-label="Experience collections"><button data-tab="clean">Clean</button><button data-tab="exp" class="active">Exp</button><button data-tab="manifests">Manifests</button></nav>
+        <section id="tab-clean" class="tab" hidden><div class="shelf"><!-- CLEAN --></div></section>
+        <section id="tab-exp" class="tab"><div class="shelf"><!-- EXP --></div></section>
+        <section id="tab-manifests" class="tab" hidden><!-- MANIFESTS --></section>
+      </section>
+      <section id="work-panel" class="control-panel" hidden>
+        <div class="section-heading"><div><p class="eyebrow">neat / work</p><h1>Work behind the Experiences</h1><p>The actual work items captured with this build.</p></div><a href="./neat.html" target="_blank" rel="noopener">Full work board</a></div>
+        <div class="table-scroll"><table><thead><tr><th>Work item</th><th>State</th><th>Outcome</th><th>Inspect</th></tr></thead><tbody id="work-rows"></tbody></table></div>
+      </section>
+      <section id="builds-panel" class="control-panel" hidden>
+        <div class="section-heading"><div><p class="eyebrow">crisp / builds</p><h1>What built, and from what</h1><p>Packaging outcomes from the artifact currently open in this workspace.</p></div><a href="./pxcube-run.json" target="_blank" rel="noopener">Latest build record</a></div>
+        <div class="table-scroll"><table><thead><tr><th>Experience</th><th>Result</th><th>Build time</th><th>Outputs</th><th>Inspect</th></tr></thead><tbody id="build-rows"></tbody></table></div>
+      </section>
+      <section id="mounts-panel" class="control-panel" hidden>
+        <div class="section-heading"><div><p class="eyebrow">Runtime / mounts</p><h1>Inside the opened sandboxes</h1><p>Read from each opened Experience’s own inspector. Unopened Experiences have not been started.</p></div><button id="refresh-mounts">Refresh mounts</button></div>
+        <div class="table-scroll"><table><thead><tr><th>Owner</th><th>Mount</th><th>Kind</th><th>Context</th><th>Inspect</th></tr></thead><tbody id="mount-rows"></tbody></table></div>
+        <p class="note">These are retained browser contexts. Hiding a frame does not pause its code. Same-origin sandbox code is trusted.</p>
+      </section>
+      <section id="viewer" hidden>
+        <div id="bar"><button id="back">All Experiences</button><strong id="thing-title"></strong><span id="frame-state" class="pill">Opened frame</span><button id="inspect-owner">Inspect owner</button><button id="inspect-manifest">Manifest</button><button id="inspect-build">Build</button></div>
+      </section>
+    </div>
+  </main>
+  <dialog id="inspector"><header><div><p class="eyebrow" id="inspector-kind"></p><h2 id="inspector-title"></h2></div><button id="close-inspector" aria-label="Close inspector">Close</button></header><p id="inspector-note"></p><pre id="inspector-value"></pre></dialog>
+  <script type="application/json" id="ntc-state"><!-- STATE --></script>
+  <script type="module" src="./shell.mjs"></script>
+</body></html>

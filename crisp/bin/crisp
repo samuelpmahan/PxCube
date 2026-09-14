@@ -2,6 +2,7 @@
 import { join, resolve } from 'node:path';
 import { PackageError, packageApp, checkApp } from '../lib/packager.mjs';
 import { scaffoldApp } from '../lib/scaffolder.mjs';
+import { scaffoldExperience } from '../lib/scaffold.mjs';
 import { verifyReceipt } from '../lib/verifier.mjs';
 
 const VERSION = '0.2.0';
@@ -14,6 +15,9 @@ function usage() {
     '  scaffold <dir> [--title T] [--mounts a,b] [--source exp/id]',
     '      generate a fresh experience folder with the canonical layout',
     '      crisp knows how to compile (called on `neat add`)',
+    '  scaffold --from-tidy <type> [--root <path>]',
+    '      generate an Experience from a tidy manifest type instead of the',
+    '      canonical layout; the destination comes from the type definition',
     '  package <app-dir> [--pxc <path>]   build and package an experience app;',
     '      emits content-addressed chunks and a wiring-manifest receipt',
     '  check <app-dir> [--pxc <path>]      validate manifest, mounts and source hash',
@@ -33,7 +37,7 @@ function parseArgs(argv) {
     const kv = arg.match(/^--([^=]+)=(.*)$/);
     if (kv) {
       opts[kv[1]] = kv[2];
-    } else if (arg === '--pxc' || arg === '--title' || arg === '--mounts' || arg === '--source') {
+    } else if (arg === '--pxc' || arg === '--title' || arg === '--mounts' || arg === '--source' || arg === '--from-tidy' || arg === '--root') {
       const key = arg.slice(2);
       opts[key] = argv[++i];
       if (opts[key] === undefined) return { error: `${arg} requires a value` };
@@ -67,6 +71,11 @@ async function main() {
 
   try {
     if (command === 'scaffold') {
+      if (opts['from-tidy']) {
+        const result = await scaffoldExperience(resolve(opts.root ?? '.'), opts['from-tidy']);
+        process.stdout.write(`generated ${result.root}: ${Object.keys(result.outputs).length} files + generation.json\nmanifest: ${result.manifestSource.type} ${result.manifestSource.digest}\n`);
+        process.exit(0);
+      }
       if (!a) fail(3, usage());
       const mounts = opts.mounts ? opts.mounts.split(',').map((m) => m.trim()).filter(Boolean) : [];
       const result = await scaffoldApp(resolve(a), {

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "types": {
+    "pxcube-hello": {
+      "version": "0.1.0",
+      "root": "experiences/hello",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
+    },
+    "pxcube-mock-smoke": {
+      "version": "0.1.0",
+      "root": "experiences/mock-smoke",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
+    },
+    "pxcube-explore-shelf": {
+      "version": "0.1.0",
+      "root": "experiences/explore-shelf",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
+    },
+    "pxcube-upload-disc-to-shelf": {
+      "version": "0.1.0",
+      "root": "experiences/upload-disc-to-shelf",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
+    },
+    "pxcube-build-bag": {
+      "version": "0.1.0",
+      "root": "experiences/build-bag",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": [
+        "node --test local/test/scaffold.test.mjs",
+        "node local/test/scaffold-browser.mjs"
+      ],
+      "experience": {
+        "title": "BuildBag",
+        "description": "Choose the discs you want to carry. A sandbox frame ready for the bag-building Experience.",
+        "entry": "index.html",
+        "mounts": [
+          "shelf"
+        ],
+        "build": "node build.mjs",
+        "outDir": "dist",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-forms"
+        ],
+        "scaffold": {
+          "template": "sandbox@1",
+          "world": "shelf",
+          "inputs": [
+            {
+              "address": "px.discs",
+              "label": "Your shelf",
+              "for": "The available discs. Selection of physical copies is the first behavior to connect."
+            }
+          ],
+          "outputs": [
+            {
+              "address": "px.bags",
+              "label": "Your saved bag",
+              "for": "An ordered collection of selected physical discs. This output has not been implemented."
+            }
+          ],
+          "steps": [
+            "Choose discs",
+            "Arrange your bag",
+            "Create bag"
+          ],
+          "draft": {
+            "address": "sc.draft",
+            "field": "name",
+            "label": "Bag name"
+          }
+        }
+      }
+    }
+  }
+}

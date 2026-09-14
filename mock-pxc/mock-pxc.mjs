@@ -71,9 +71,18 @@ export function resolveAddress(world, address) {
   if (!NAMESPACES.includes(ns)) {
     throw new Error(`resolveAddress: unknown namespace "${ns}" (expected one of ${NAMESPACES.join(', ')})`);
   }
-  let node = worlds[world][ns];
+  return resolveWorldValue(worlds[world], address);
+}
+
+// Same resolution law for an explicitly owned world instance. The original
+// fixture resolver above keeps its public contract and shared fixture values.
+export function resolveWorldValue(value, address) {
+  if (typeof address !== 'string' || !address) throw new Error('A non-empty inner address is required');
+  const [ns, ...rest] = address.split('.');
+  if (!NAMESPACES.includes(ns) || rest.some(key => !key)) throw new Error(`Invalid inner address: ${address}`);
+  let node = value[ns];
   if (node === undefined) {
-    throw new Error(`resolveAddress: namespace "${ns}" missing in world "${world}"`);
+    throw new Error(`resolveAddress: namespace "${ns}" missing in world instance`);
   }
   // Dotted-path traversal. At each level the longest remaining dotted key is
   // tried first, so literal keys like 'discs.buzzz' resolve alongside nested
@@ -81,7 +90,7 @@ export function resolveAddress(world, address) {
   let i = 0;
   while (i < rest.length) {
     if (node === null || typeof node !== 'object') {
-      throw new Error(`resolveAddress: no path "${address}" in world "${world}"`);
+      throw new Error(`resolveAddress: no path "${address}" in world instance`);
     }
     let found = false;
     for (let j = rest.length; j > i; j--) {
@@ -94,7 +103,7 @@ export function resolveAddress(world, address) {
       }
     }
     if (!found) {
-      throw new Error(`resolveAddress: no path "${address}" in world "${world}"`);
+      throw new Error(`resolveAddress: no path "${address}" in world instance`);
     }
   }
   return node;

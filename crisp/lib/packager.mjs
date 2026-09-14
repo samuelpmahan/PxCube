@@ -6,6 +6,13 @@ import { loadManifest, validateManifestShape } from './manifest.mjs';
 import { hashSources } from './hasher.mjs';
 import { findMountUses, findPersistedMountPrefixes } from './scanner.mjs';
 
+export async function hashAppSources(appDir, manifest) {
+  const source = await hashSources(appDir, [manifest.outDir, '.crisp']);
+  return manifest.manifestSource
+    ? createHash('sha256').update(source + '\0' + manifest.manifestSource.digest).digest('hex')
+    : source;
+}
+
 export class PackageError extends Error {
   constructor(code, message) {
     super(message);
@@ -206,6 +213,7 @@ export async function packageApp(appDir, { pxcPath } = {}) {
     chunks,
     sourceHash, // provenance: which tree built this. Never a gate.
     manifestHash: createHash('sha256').update(manifestRaw).digest('hex'),
+    ...(manifest.manifestSource ? { manifestSource: manifest.manifestSource } : {}),
     build: {
       command: manifest.build,
       exitCode: build.exitCode,
