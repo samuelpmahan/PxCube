@@ -3,6 +3,10 @@
 Candidate branch: `codex/local-pages`, based on Muse's `d1de6847` snapshot.
 Node 24; no package installation or global hooks needed.
 
+This document describes the downstream local adapter, not the full ecosystem's
+entry point. See [build-map.md](build-map.md) for Sam's correction placing
+`neat add` and crisp's experiment generation above this packaging path.
+
 ```sh
 node local/run.mjs dev
 ```
