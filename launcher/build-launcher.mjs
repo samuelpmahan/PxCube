@@ -1,9 +1,18 @@
-// scripts/build-launcher.mjs
+// launcher/build-launcher.mjs
 //
-// Reads experiences/*/experience.json and the per-Experience build outputs
+// Reads experiences/*/experience.json and the per-Experience crisp outputs
 // in staging/exp-*, then writes dist/:
 //   dist/index.html               the launcher: Clean / Exp tabs + manifest accordion
-//   dist/experiences/<id>/...     each THING that built green
+//   dist/experiences/<id>/...     each THING that built green, with its crisp
+//                                 receipt.json riding alongside
+//
+// Each THING is built by crisp, not by this script: the Actions workflow runs
+// `crisp package` (validates mounts, builds, content-addresses the output
+// chunks into a wiring-manifest receipt) and `crisp verify` (re-hashes the
+// chunks against the receipt) per experience. This script only wires the
+// resulting artifacts together: it copies the staged chunks into place and
+// renders the receipt's wiring info in the manifest accordion, so what Sam
+// reviews is exactly the bytes the receipt names.
 //
 // The manifest is the extension point. Known fields render as rows; every
 // other key lands in the accordion's "everything else" block as JSON, so
@@ -28,13 +37,16 @@ const FORBIDDEN_TOKENS = new Set([
 ]);
 
 const KNOWN_FIELDS = new Set([
-  'title', 'description', 'version', 'track', 'entry', 'build', 'outDir', 'sandbox',
+  'title', 'description', 'version', 'track', 'entry', 'build', 'outDir',
+  'sandbox', 'mounts', 'source',
 ]);
 
 const esc = (s) =>
-  String(s ?? '').replace(/[&<>"]/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+  String(s ?? '').replace(/[&<>\"]/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]
   ));
+
+const shortHash = (hex) => (hex ? `${hex.slice(0, 12)}` : '');
 
 const manifests = [];
 for (const ent of readdirSync(EXP, { withFileTypes: true })) {
@@ -42,6 +54,20 @@ for (const ent of readdirSync(EXP, { withFileTypes: true })) {
   const mf = join(EXP, ent.name, 'experience.json');
   if (!existsSync(mf)) continue;
   manifests.push({ id: ent.name, ...JSON.parse(readFileSync(mf, 'utf8')) });
+}
+
+// The crisp receipt staged next to each THING's chunks, when the build job
+// packaged it. Absent for failed builds.
+const receipts = new Map();
+for (const m of manifests) {
+  const rp = join(STAGING, `exp-${m.id}`, 'receipt.json');
+  if (existsSync(rp)) {
+    try {
+      receipts.set(m.id, JSON.parse(readFileSync(rp, 'utf8')));
+    } catch {
+      // a corrupt receipt is a failed build; the THING still ships by path
+    }
+  }
 }
 
 // Anything that is not explicitly clean is exp. The clean tab stays honest:
@@ -98,11 +124,26 @@ const shelfFor = (track) => {
   return items.map(card).join('') + fails.map(failedCard).join('') + empty;
 };
 
+const receiptBlock = (m) => {
+  const r = receipts.get(m.id);
+  if (!r) return '';
+  const chunkRows = (r.chunks || [])
+    .map((c) => `<div class="row"><dt>${esc(c.path)}</dt><dd><code>${esc(shortHash(c.sha256))}</code></dd></div>`)
+    .join('');
+  return `
+      <h4>wiring manifest, crisp receipt</h4>
+      <div class="row"><dt>entry chunk</dt><dd><code>${esc(shortHash(r.entryChunk))}</code></dd></div>
+      <div class="row"><dt>chunks</dt><dd>${(r.chunks || []).length}</dd></div>
+      <div class="row"><dt>packaged at</dt><dd>${esc(r.packagedAt || '')}</dd></div>
+      ${chunkRows}`;
+};
+
 const manifestAccordion = (m) => {
   const rows = [
     ['title', m.title], ['description', m.description], ['version', m.version],
     ['track', trackOf(m)], ['entry', m.entry], ['build', m.build],
     ['outDir', m.outDir], ['sandbox', sandboxFor(m)],
+    ['mounts', (m.mounts || []).join(', ')], ['source', m.source],
   ].map(([k, v]) => `<div class="row"><dt>${esc(k)}</dt><dd>${esc(v ?? '')}</dd></div>`).join('');
   const ex = extrasOf(m);
   const extraBlock = Object.keys(ex).length
@@ -111,7 +152,7 @@ const manifestAccordion = (m) => {
   return `
     <details class="manifest">
       <summary><code>${esc(m.id)}</code> ${esc(m.title || '')} <span class="badge ${trackOf(m)}">${esc(trackOf(m))}</span></summary>
-      <div class="panel"><dl>${rows}</dl>${extraBlock}</div>
+      <div class="panel"><dl>${rows}</dl>${receiptBlock(m)}${extraBlock}</div>
     </details>`;
 };
 
