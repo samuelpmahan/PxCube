@@ -115,125 +115,13 @@ const manifestAccordion = (m) => {
     </details>`;
 };
 
-const html = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Experiences</title>
-<style>
-  :root { color-scheme: dark; }
-  body { margin: 0; font-family: system-ui, sans-serif; background: #101014; color: #eee; }
-  header { padding: 24px 24px 0; }
-  h1 { margin: 0 0 4px; font-size: 22px; }
-  header p { margin: 0 0 16px; color: #999; font-size: 14px; }
-  header a { color: #a9d9c9; margin-right: 18px; }
-  #refresh-build { color: #111; background: #bde6d6; border: 0; border-radius: 6px; padding: 6px 10px; cursor: pointer; }
-  #tabs { display: flex; gap: 8px; padding: 0 24px; border-bottom: 1px solid #2c2c34; }
-  #tabs button { background: none; border: none; border-bottom: 2px solid transparent; color: #999; padding: 10px 4px; margin-bottom: -1px; cursor: pointer; font: inherit; font-size: 14px; }
-  #tabs button.active { color: #eee; border-bottom-color: #eee; }
-  .tab { padding: 20px 24px 24px; }
-  .tab[hidden] { display: none; }
-  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-  .card { text-align: left; background: #1a1a20; border: 1px solid #2c2c34; border-radius: 12px; padding: 16px; color: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 8px; font: inherit; }
-  .card:hover { border-color: #55555f; }
-  .card strong { font-size: 16px; }
-  .card span { color: #999; font-size: 13px; }
-  .card em { color: #666; font-size: 12px; font-style: normal; }
-  .card.failed { opacity: 0.55; cursor: default; border-style: dashed; }
-  .empty { color: #666; font-size: 14px; }
-  details.manifest { background: #1a1a20; border: 1px solid #2c2c34; border-radius: 12px; margin-bottom: 12px; }
-  details.manifest summary { cursor: pointer; padding: 14px 16px; list-style: none; display: flex; gap: 10px; align-items: center; }
-  details.manifest summary::-webkit-details-marker { display: none; }
-  details.manifest summary::before { content: '▸'; color: #666; }
-  details.manifest[open] summary::before { content: '▾'; }
-  details.manifest code { font-size: 13px; }
-  .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid #2c2c34; color: #999; }
-  .badge.clean { color: #9ece9e; border-color: #3a5a3a; }
-  .panel { padding: 0 16px 16px; }
-  .panel dl { margin: 0; }
-  .row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; padding: 6px 0; border-top: 1px solid #26262c; font-size: 13px; }
-  .row dt { color: #888; }
-  .row dd { margin: 0; word-break: break-word; }
-  .panel h4 { color: #888; font-size: 12px; margin: 16px 0 8px; font-weight: 600; }
-  .panel pre { background: #101014; border: 1px solid #2c2c34; border-radius: 8px; padding: 12px; overflow: auto; font-size: 12px; }
-  #viewer { position: fixed; inset: 0; display: flex; flex-direction: column; background: #101014; z-index: 10; }
-  #viewer[hidden], .thing[hidden] { display: none; }
-  #bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #2c2c34; }
-  #bar button { background: #1a1a20; color: inherit; border: 1px solid #2c2c34; border-radius: 8px; padding: 8px 12px; cursor: pointer; font: inherit; }
-  .thing { flex: 1; border: 0; width: 100%; background: #fff; }
-</style>
-</head>
-<body>
-<header>
-  <h1>Experiences</h1>
-  <p>Clean is the trunk. Exp is the jungle. Each THING runs sandboxed in its own frame.</p>
-  <p><a href="./neat.html">Work board</a><a href="./pxcube-run.json">Build record</a><button id="refresh-build" hidden>New build ready · reload</button></p>
-</header>
-<nav id="tabs">
-  <button data-tab="clean" class="active">Clean</button>
-  <button data-tab="exp">Exp</button>
-  <button data-tab="manifests">Manifests</button>
-</nav>
-<section id="tab-clean" class="tab"><div class="shelf">
-${shelfFor('clean')}
-</div></section>
-<section id="tab-exp" class="tab" hidden><div class="shelf">
-${shelfFor('exp')}
-</div></section>
-<section id="tab-manifests" class="tab" hidden>
-${manifests.map(manifestAccordion).join('')}
-</section>
-<section id="viewer" hidden>
-  <div id="bar">
-    <button id="back">&larr; back</button>
-    <strong id="thing-title"></strong>
-  </div>
-  <!-- Experience frames are retained when returning to the launcher. -->
-</section>
-<script>
-  const tabs = document.querySelectorAll('#tabs button');
-  tabs.forEach((b) => b.addEventListener('click', () => {
-    tabs.forEach((x) => x.classList.toggle('active', x === b));
-    document.querySelectorAll('.tab').forEach((t) => { t.hidden = t.id !== 'tab-' + b.dataset.tab; });
-  }));
-  if (!document.querySelector('#tab-clean .card')) document.querySelector('[data-tab="exp"]').click();
-  let initialRun;
-  async function checkBuild() {
-    try {
-      const response = await fetch('./pxcube-run.json', {cache:'no-store'});
-      if (!response.ok) return;
-      const run = await response.json();
-      if (!initialRun) initialRun = run.runId;
-      document.getElementById('refresh-build').hidden = run.runId === initialRun;
-    } catch { /* A plain older launcher need not have a local build report. */ }
-  }
-  document.getElementById('refresh-build').onclick = () => location.reload();
-  checkBuild(); setInterval(checkBuild, 5000);
-  const retainedFrames = new Map();
-  document.addEventListener('click', (e) => {
-    const el = e.target.closest('.card');
-    if (!el || !el.dataset.id) return;
-    for (const retained of retainedFrames.values()) { retained.hidden = true; retained.removeAttribute('id'); }
-    let frame = retainedFrames.get(el.dataset.id);
-    if (!frame) {
-      frame = document.createElement('iframe'); frame.className = 'thing';
-      frame.title = el.querySelector('strong').textContent;
-      frame.setAttribute('sandbox', el.dataset.sandbox);
-      frame.src = './experiences/' + el.dataset.id + '/index.html';
-      retainedFrames.set(el.dataset.id, frame); document.getElementById('viewer').append(frame);
-    }
-    frame.id = 'thing'; frame.hidden = false;
-    document.getElementById('thing-title').textContent = el.querySelector('strong').textContent;
-    document.getElementById('viewer').hidden = false;
-  });
-  document.getElementById('back').addEventListener('click', () => {
-    document.getElementById('viewer').hidden = true;
-  });
-</script>
-</body>
-</html>
-`;
-
+const state = existsSync('ntc-state.json') ? JSON.parse(readFileSync('ntc-state.json', 'utf8')) : { schemaVersion: 1, work: [], types: {}, results: [] };
+const payload = JSON.stringify({ ...state, manifests, packagedIds: shipped.map(m => m.id) }).replaceAll('<', '\\u003c');
+const html = readFileSync(new URL('./shell.html', import.meta.url), 'utf8')
+  .replace('<!-- CLEAN -->', shelfFor('clean'))
+  .replace('<!-- EXP -->', shelfFor('exp'))
+  .replace('<!-- MANIFESTS -->', manifests.map(manifestAccordion).join(''))
+  .replace('<!-- STATE -->', payload);
 writeFileSync(join(DIST, 'index.html'), html);
+for (const file of ['shell.css', 'shell.mjs']) writeFileSync(join(DIST, file), readFileSync(new URL('./' + file, import.meta.url)));
 console.log(`launcher: ${shipped.length} shipped, ${failed.length} failed`);

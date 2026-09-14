@@ -89,7 +89,7 @@ export async function build(repo = root, { refreshRegistry = false } = {}) {
         copyTree(path.join(destination, manifest.outDir), stage);
         const outputHashes = hashes(stage);
         write(path.join(stage, 'pxcube-receipt.json'), { ...receipt, runId, sharedToolsHash, outputHashes, tidy: { track: registration.track, changedSinceRegistration: drift } });
-        results.push({ id, ok: true, sourceHash, outputHashes, receipt: path.relative(run, path.join(destination, '.crisp/receipt.json')), drift });
+        results.push({ id, ok: true, sourceHash, outputHashes, build: receipt.build, receipt: path.relative(run, path.join(destination, '.crisp/receipt.json')), drift });
       } catch (error) {
         results.push({ id, ok: false, sourceHash: sourceHash ?? null, error: String(error), drift });
         fs.mkdirSync(destination, { recursive: true }); write(path.join(destination, 'failure.json'), results.at(-1));
@@ -103,8 +103,14 @@ export async function build(repo = root, { refreshRegistry = false } = {}) {
     const neat = command([path.join(work, 'vendor/neat/dist/cli.js'), 'check', '--root', ledger], ledger);
     const tidy = command([path.join(work, 'vendor/tidy/tidy'), 'check'], ledger);
     fs.writeFileSync(path.join(run, 'neat-check.log'), neat); fs.writeFileSync(path.join(run, 'tidy-check.log'), tidy);
+    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], {cwd: repo,encoding:'utf8'}).stdout?.trim() ?? null;
+    write(path.join(assembly, 'ntc-state.json'), {
+      schemaVersion: 1, runId, sourceCommit, sharedToolsHash,
+      work: fs.readdirSync(path.join(ledger, '.neat/items')).filter(file => file.endsWith('.json')).sort().map(file => read(path.join(ledger, '.neat/items', file))),
+      types: lineage.types, results,
+    });
     const launcher = command([path.join(work, 'launcher/build-launcher.mjs')], assembly);
-    const report = { schemaVersion: 1, runId, sourceCommit: spawnSync('git', ['rev-parse', 'HEAD'], {cwd: repo,encoding:'utf8'}).stdout?.trim() ?? null, toolsHash, sharedToolsHash, ledgerHashes: hashes(ledger), results, launcher, neat, tidy };
+    const report = { schemaVersion: 1, runId, sourceCommit, toolsHash, sharedToolsHash, ledgerHashes: hashes(ledger), results, launcher, neat, tidy };
     write(path.join(run, 'report.json'), report);
     copyTree(path.join(assembly, 'dist'), path.join(run, 'site'));
     command([path.join(work, 'vendor/neat/dist/cli.js'), 'html', '--root', ledger, '--out', path.join(run, 'site/neat.html')], ledger);

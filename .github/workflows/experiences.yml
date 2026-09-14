@@ -41,6 +41,11 @@ jobs:
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/pxcube-browser/node_modules/playwright/index.mjs
         run: node local/test/scaffold-browser.mjs
+      - name: inspect the NTC console and retain an Experience across views
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/pxcube-browser/node_modules/playwright/index.mjs
+          NTC_FIXTURE: '1'
+        run: node local/test/ntc-browser.mjs
       - name: same packaging program as local preview
         run: node local/ci.mjs
       - id: ready
@@ -57,6 +62,7 @@ jobs:
           path: |
             .pxcube/runs/
             evidence/build-bag-scaffold/
+            evidence/ntc-console/
           include-hidden-files: true
   deploy:
     needs: package
