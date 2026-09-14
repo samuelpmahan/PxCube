@@ -158,10 +158,10 @@ const html = `<!doctype html>
   .panel h4 { color: #888; font-size: 12px; margin: 16px 0 8px; font-weight: 600; }
   .panel pre { background: #101014; border: 1px solid #2c2c34; border-radius: 8px; padding: 12px; overflow: auto; font-size: 12px; }
   #viewer { position: fixed; inset: 0; display: flex; flex-direction: column; background: #101014; z-index: 10; }
-  #viewer[hidden] { display: none; }
+  #viewer[hidden], .thing[hidden] { display: none; }
   #bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #2c2c34; }
   #bar button { background: #1a1a20; color: inherit; border: 1px solid #2c2c34; border-radius: 8px; padding: 8px 12px; cursor: pointer; font: inherit; }
-  #thing { flex: 1; border: 0; width: 100%; background: #fff; }
+  .thing { flex: 1; border: 0; width: 100%; background: #fff; }
 </style>
 </head>
 <body>
@@ -189,7 +189,7 @@ ${manifests.map(manifestAccordion).join('')}
     <button id="back">&larr; back</button>
     <strong id="thing-title"></strong>
   </div>
-  <iframe id="thing" title="experience"></iframe>
+  <!-- Experience frames are retained when returning to the launcher. -->
 </section>
 <script>
   const tabs = document.querySelectorAll('#tabs button');
@@ -210,18 +210,24 @@ ${manifests.map(manifestAccordion).join('')}
   }
   document.getElementById('refresh-build').onclick = () => location.reload();
   checkBuild(); setInterval(checkBuild, 5000);
+  const retainedFrames = new Map();
   document.addEventListener('click', (e) => {
     const el = e.target.closest('.card');
     if (!el || !el.dataset.id) return;
-    const frame = document.getElementById('thing');
-    frame.setAttribute('sandbox', el.dataset.sandbox);
-    frame.src = './experiences/' + el.dataset.id + '/index.html';
+    for (const retained of retainedFrames.values()) { retained.hidden = true; retained.removeAttribute('id'); }
+    let frame = retainedFrames.get(el.dataset.id);
+    if (!frame) {
+      frame = document.createElement('iframe'); frame.className = 'thing';
+      frame.title = el.querySelector('strong').textContent;
+      frame.setAttribute('sandbox', el.dataset.sandbox);
+      frame.src = './experiences/' + el.dataset.id + '/index.html';
+      retainedFrames.set(el.dataset.id, frame); document.getElementById('viewer').append(frame);
+    }
+    frame.id = 'thing'; frame.hidden = false;
     document.getElementById('thing-title').textContent = el.querySelector('strong').textContent;
     document.getElementById('viewer').hidden = false;
   });
   document.getElementById('back').addEventListener('click', () => {
-    const frame = document.getElementById('thing');
-    frame.removeAttribute('src');
     document.getElementById('viewer').hidden = true;
   });
 </script>

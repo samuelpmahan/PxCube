@@ -7,7 +7,9 @@ Node 24; no package installation or global hooks needed.
 node local/run.mjs dev
 ```
 
-Open `http://127.0.0.1:4321/`. The launcher contains Hello and MockPxC. Select
+Open `http://127.0.0.1:4321/`. The launcher contains Hello, MockPxC,
+UploadDiscToShelf, and ExploreShelf. The two Studio imports and their boundaries
+are described in [studio-sandboxes.md](studio-sandboxes.md). Select
 MockPxC opens the interactive `mock.shelf` sandbox. Edit its bag name, then
 choose Open interactive sandbox to resume it or New test run to create a fresh
 `mock.shelf.<iterator>`. Run visible isolation check operates the actual Save

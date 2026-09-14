@@ -43,6 +43,72 @@
       "sourceHash": "534dd029b9fe7f2ee94afaa9310316c16ff1b4958bb443547cac4023aca30abc",
       "sharedToolsHash": "fbf724901172a9ed85da8ae669634d0f80ccd9ff25a7fbf857cb04d8bdb271d0",
       "registeredAt": "2026-09-14T13:58:38.278Z"
+    },
+    "explore-shelf": {
+      "track": "exp",
+      "manifest": {
+        "id": "explore-shelf",
+        "title": "ExploreShelf",
+        "description": "Browse the accepted shopping shelf; inspect or test the live Part edit loop separately.",
+        "version": "0.1.0",
+        "track": "exp",
+        "mounts": [
+          "studio"
+        ],
+        "entry": "index.html",
+        "outDir": "dist",
+        "build": "node build.mjs",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-downloads",
+          "allow-modals"
+        ],
+        "studio": {
+          "mode": "shelf",
+          "sourceCommit": "6f7937bc1eebd22bf3135f50c9edf714b122902a",
+          "integration": "Legacy Studio model in an owning context. Additional dependency scan: studio-import.json.",
+          "interactive": "mock.explore-shelf.*",
+          "tests": "mock.explore-shelf.<iterator>.*"
+        },
+        "storage": "Only mount-scoped local storage. Trusted same-origin code; not a security boundary."
+      },
+      "sourceHash": "d9875013353c9cc4910e35e38c042be2def7e4bae8b15868a55135ded0374672",
+      "sharedToolsHash": "5dde57c7b27ee3a223ba9311e483e2ba02acdd92bb1fc3c1328ad50f75027c51",
+      "registeredAt": "2026-09-14T15:23:33.279Z"
+    },
+    "upload-disc-to-shelf": {
+      "track": "exp",
+      "manifest": {
+        "id": "upload-disc-to-shelf",
+        "title": "UploadDiscToShelf",
+        "description": "Paint or photograph a disc, save it, and inspect its Parts in an isolated sandbox.",
+        "version": "0.1.0",
+        "track": "exp",
+        "mounts": [
+          "studio"
+        ],
+        "entry": "index.html",
+        "outDir": "dist",
+        "build": "node build.mjs",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-downloads",
+          "allow-modals"
+        ],
+        "studio": {
+          "mode": "upload",
+          "sourceCommit": "6f7937bc1eebd22bf3135f50c9edf714b122902a",
+          "integration": "Legacy Studio model in an owning context. Additional dependency scan: studio-import.json.",
+          "interactive": "mock.upload-disc-to-shelf.*",
+          "tests": "mock.upload-disc-to-shelf.<iterator>.*"
+        },
+        "storage": "Only mount-scoped local storage. Trusted same-origin code; not a security boundary."
+      },
+      "sourceHash": "f4179e57237485b173048bb9bb8ea7a157e23503773679587846e9e6b9181dcd",
+      "sharedToolsHash": "5dde57c7b27ee3a223ba9311e483e2ba02acdd92bb1fc3c1328ad50f75027c51",
+      "registeredAt": "2026-09-14T15:23:35.741Z"
     }
   }
 }

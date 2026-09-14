@@ -14,6 +14,20 @@
       "clean": "clean",
       "experiments": "exp",
       "tests": []
+    },
+    "pxcube-explore-shelf": {
+      "version": "0.1.0",
+      "root": "experiences/explore-shelf",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
+    },
+    "pxcube-upload-disc-to-shelf": {
+      "version": "0.1.0",
+      "root": "experiences/upload-disc-to-shelf",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
     }
   }
 }

@@ -1,0 +1,28 @@
+{
+  "id": "upload-disc-to-shelf",
+  "title": "UploadDiscToShelf",
+  "description": "Paint or photograph a disc, save it, and inspect its Parts in an isolated sandbox.",
+  "version": "0.1.0",
+  "track": "exp",
+  "mounts": [
+    "studio"
+  ],
+  "entry": "index.html",
+  "outDir": "dist",
+  "build": "node build.mjs",
+  "sandbox": [
+    "allow-scripts",
+    "allow-same-origin",
+    "allow-downloads",
+    "allow-modals",
+    "allow-forms"
+  ],
+  "studio": {
+    "mode": "upload",
+    "sourceCommit": "6f7937bc1eebd22bf3135f50c9edf714b122902a",
+    "integration": "Legacy Studio model in an owning context. Additional dependency scan: studio-import.json.",
+    "interactive": "mock.upload-disc-to-shelf.*",
+    "tests": "mock.upload-disc-to-shelf.<iterator>.*"
+  },
+  "storage": "Only mount-scoped local storage. Trusted same-origin code; not a security boundary."
+}
