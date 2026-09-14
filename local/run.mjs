@@ -7,14 +7,15 @@ import http from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { hashSources } from '../crisp/lib/hasher.mjs';
+import { hashAppSources } from '../crisp/lib/packager.mjs';
+import { loadManifest } from '../crisp/lib/manifest.mjs';
 import { validateWorkItem } from '../vendor/neat/dist/work-items.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const root = path.resolve(here, '..');
 process.env.PATH = `${path.dirname(process.execPath)}${path.delimiter}${process.env.PATH ?? ''}`;
 const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
-const write = (file, value) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n'); };
+const write = (file, value) => { const bytes = JSON.stringify(value, null, 2) + '\n'; if (fs.existsSync(file) && fs.readFileSync(file, 'utf8') === bytes) return; fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, bytes); };
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const idOK = id => /^[A-Za-z0-9_-]+$/.test(id);
 function command(args, cwd) {
@@ -46,9 +47,11 @@ export async function build(repo = root, { refreshRegistry = false } = {}) {
   const run = path.join(state, 'runs', runId), work = path.join(run, 'work'), assembly = path.join(run, 'assembly');
   try {
     fs.mkdirSync(work, { recursive: true }); fs.mkdirSync(path.join(assembly, 'experiences'), { recursive: true });
-    for (const folder of ['crisp', 'mock-pxc', 'launcher', 'local', 'vendor']) copyTree(path.join(repo, folder), path.join(work, folder));
+    for (const folder of ['crisp', 'tidy', 'mock-pxc', 'launcher', 'local', 'vendor']) copyTree(path.join(repo, folder), path.join(work, folder));
     const toolsHash = hashes(work);
     const sharedToolsHash = sha(JSON.stringify(toolsHash));
+    // Builds consume the same retained manifest snapshot as their source.
+    if (fs.existsSync(path.join(repo, '.tidy'))) copyTree(path.join(repo, '.tidy'), path.join(work, '.tidy'));
     const { packageApp } = await import(pathToFileURL(path.join(work, 'crisp/lib/packager.mjs')).href);
     const registryPath = path.join(repo, '.tidy/pxcube.json');
     const registry = fs.existsSync(registryPath) ? read(registryPath) : { schemaVersion: 1, apps: {} };
@@ -64,12 +67,12 @@ export async function build(repo = root, { refreshRegistry = false } = {}) {
       if (!fs.existsSync(itemPath)) write(itemPath, { schemaVersion: 1, id: `PXCUBE-${id}`, outcome: `Run and inspect ${id} through the shared PxCube packaging program.`, location: { component: `experiences/${id}` }, target: { kind: 'pcr', identity: `pcr.pxcube.${id}` }, requirements: [{ id: 'package', text: 'Current source packages and supplies a usable index.html.' }, { id: 'review', text: 'The mounted Experience is inspected by its human reviewer.' }], dependencies: [], status: 'active', blockers: [], checkpoints: [], acceptanceRefs: [], promotionRefs: [], resume: 'Inspect the retained local packaging attempts; do not equate a build with human acceptance.' });
       const problems = validateWorkItem(read(itemPath)); if (problems.length) throw Error(problems.join('; '));
       try {
-        manifest = read(path.join(source, 'experience.json'));
+        manifest = await loadManifest(source, { providerRoot: work });
         if (manifest.id !== undefined && manifest.id !== id) throw Error('Manifest id differs from its app directory.');
         if (typeof manifest.outDir !== 'string' || !/^[A-Za-z0-9_-]+$/.test(manifest.outDir)) throw Error('This local adapter requires a single top-level outDir name; nested output paths need a crisp hashing fix.');
         // Use a fresh source snapshot, so an old dist cannot masquerade as a new build.
         copyTree(source, destination, [manifest.outDir.split('/')[0]]);
-        sourceHash = await hashSources(destination, [manifest.outDir, '.crisp']);
+        sourceHash = await hashAppSources(destination, manifest);
         registration = registry.apps[id];
         if (!registration || refreshRegistry) {
           registration = { track: 'exp', manifest, sourceHash, sharedToolsHash, registeredAt: new Date().toISOString() };
@@ -81,7 +84,7 @@ export async function build(repo = root, { refreshRegistry = false } = {}) {
         const receipt = await packageApp(destination);
         const index = path.join(destination, manifest.outDir, 'index.html');
         if (!fs.existsSync(index) || !fs.statSync(index).isFile()) throw Error('A Page needs index.html; crisp output enumeration alone is insufficient.');
-        if (await hashSources(destination, [manifest.outDir, '.crisp']) !== sourceHash) throw Error('Build changed its recorded source; inspect this attempt.');
+        if (await hashAppSources(destination, await loadManifest(destination)) !== sourceHash) throw Error('Build changed its recorded source; inspect this attempt.');
         const stage = path.join(assembly, 'staging', `exp-${id}`);
         copyTree(path.join(destination, manifest.outDir), stage);
         const outputHashes = hashes(stage);
@@ -138,7 +141,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         serve(root, { port: Number(process.env.PORT || 4321) });
         let timer, running = false, again = false;
         const rebuild = async () => { if (running) { again = true; return; } running = true; try { await build(root); } catch (error) { console.error(String(error)); } finally { running = false; if (again) { again = false; void rebuild(); } } };
-        for (const folder of ['experiences','launcher','crisp','mock-pxc','local']) fs.watch(path.join(root,folder), {recursive:true}, (_event,file) => {
+        for (const folder of ['experiences','launcher','crisp','tidy','.tidy','mock-pxc','local']) fs.watch(path.join(root,folder), {recursive:true}, (_event,file) => {
+          if (folder === '.tidy' && String(file) !== 'manifest.json') return;
           if (!file || String(file).split(/[\\/]/).some(v => ['dist','.crisp','node_modules'].includes(v))) return;
           clearTimeout(timer); timer = setTimeout(rebuild, 350);
         });

@@ -31,7 +31,7 @@ test('actual crisp CLI: six fixture intentions, with explicit negative mutations
 test('shared pipeline retains attempts, isolates failed builds, shows drift and refuses stale output',async()=>{
   const repo=temp();
   try {
-    for(const name of ['local','vendor','crisp','mock-pxc','launcher']) fs.cpSync(path.join(root,name),path.join(repo,name),{recursive:true});
+    for(const name of ['local','tidy','vendor','crisp','mock-pxc','launcher']) fs.cpSync(path.join(root,name),path.join(repo,name),{recursive:true});
     fs.mkdirSync(path.join(repo,'experiences'));
     fixture('hello',path.join(repo,'experiences/hello')); fixture('broken',path.join(repo,'experiences/broken'));
     const first=await build(repo); assert.deepEqual(first.report.results.map(r=>[r.id,r.ok]),[['broken',false],['hello',true]]);

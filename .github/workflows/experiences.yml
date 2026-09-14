@@ -6,6 +6,7 @@ on:
       - 'experiences/**'
       - 'launcher/**'
       - 'crisp/**'
+      - 'tidy/**'
       - 'mock-pxc/**'
       - 'local/**'
       - 'vendor/**'
@@ -32,6 +33,14 @@ jobs:
           node-version: 24
       - name: verify local adapter and crisp fixtures
         run: node --test local/test/*.test.mjs
+      - name: install the browser test runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pxcube-browser" --no-save playwright@1.62.1
+          node "$RUNNER_TEMP/pxcube-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: generate and exercise a sandbox through crisp
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/pxcube-browser/node_modules/playwright/index.mjs
+        run: node local/test/scaffold-browser.mjs
       - name: same packaging program as local preview
         run: node local/ci.mjs
       - id: ready
@@ -45,7 +54,9 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: pxcube-attempts
-          path: .pxcube/runs/
+          path: |
+            .pxcube/runs/
+            evidence/build-bag-scaffold/
           include-hidden-files: true
   deploy:
     needs: package

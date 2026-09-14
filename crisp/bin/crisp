@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { join, resolve } from 'node:path';
 import { PackageError, packageApp, checkApp } from '../lib/packager.mjs';
+import { scaffoldExperience } from '../lib/scaffold.mjs';
 
 const VERSION = '0.1.0';
 
@@ -9,6 +10,7 @@ function usage() {
     'usage: crisp <command> [options]',
     '',
     'commands:',
+    '  scaffold <tidy-type> [--root <path>] generate an Experience from tidy',
     '  package <app-dir> [--pxc <path>]   build and package an experience app',
     '  check <app-dir> [--pxc <path>]      validate manifest, mounts and source hash',
     '  --help, -h                          show this help',
@@ -20,9 +22,12 @@ function usage() {
 
 function parseArgs(argv) {
   const positional = [];
-  let pxc;
+  let pxc, root;
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--pxc') {
+    if (argv[i] === '--root') {
+      root = argv[++i];
+      if (!root) return { error: '--root requires a path' };
+    } else if (argv[i] === '--pxc') {
       pxc = argv[++i];
       if (!pxc) return { error: '--pxc requires a path' };
     } else if (argv[i].startsWith('--pxc=')) {
@@ -31,7 +36,7 @@ function parseArgs(argv) {
       positional.push(argv[i]);
     }
   }
-  return { positional, pxc };
+  return { positional, pxc, root };
 }
 
 function fail(code, message) {
@@ -40,10 +45,17 @@ function fail(code, message) {
 }
 
 async function main() {
-  const { positional, pxc, error } = parseArgs(process.argv.slice(2));
+  const { positional, pxc, root, error } = parseArgs(process.argv.slice(2));
   if (error) fail(3, usage());
 
   const [command, appDirArg] = positional;
+  if (command === 'scaffold' && positional.length === 2 && !pxc) {
+    try {
+      const result = await scaffoldExperience(resolve(root ?? '.'), appDirArg);
+      process.stdout.write(`generated ${result.root}: ${Object.keys(result.outputs).length} files + generation.json\nmanifest: ${result.manifestSource.type} ${result.manifestSource.digest}\n`);
+      return;
+    } catch (err) { fail(1, err.message); }
+  }
   if (command === '--help' || command === '-h') {
     process.stdout.write(usage() + '\n');
     process.exit(0);
@@ -53,7 +65,7 @@ async function main() {
     process.exit(0);
   }
 
-  if ((command !== 'package' && command !== 'check') || !appDirArg) {
+  if ((command !== 'package' && command !== 'check') || positional.length !== 2 || root) {
     fail(3, usage());
   }
   const appDir = resolve(appDirArg);

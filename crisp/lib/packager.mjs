@@ -6,6 +6,13 @@ import { loadManifest, validateManifestShape } from './manifest.mjs';
 import { hashSources } from './hasher.mjs';
 import { findMountUses, findPersistedMountPrefixes } from './scanner.mjs';
 
+export async function hashAppSources(appDir, manifest) {
+  const source = await hashSources(appDir, [manifest.outDir, '.crisp']);
+  return manifest.manifestSource
+    ? createHash('sha256').update(source + '\0' + manifest.manifestSource.digest).digest('hex')
+    : source;
+}
+
 export class PackageError extends Error {
   constructor(code, message) {
     super(message);
@@ -104,7 +111,7 @@ async function gather(appDir, pxcPath) {
   if (shapeErrors.length > 0) {
     throw new PackageError('manifest', shapeErrors.join('; '));
   }
-  const sourceHash = await hashSources(appDir, [manifest.outDir, '.crisp']);
+  const sourceHash = await hashAppSources(appDir, manifest);
   if (manifest.sourceHash && manifest.sourceHash !== sourceHash) {
     throw new PackageError(
       'drift',
@@ -194,6 +201,7 @@ export async function packageApp(appDir, { pxcPath } = {}) {
     usedMounts,
     sourceHash,
     manifestHash: createHash('sha256').update(manifestRaw).digest('hex'),
+    ...(manifest.manifestSource ? { manifestSource: manifest.manifestSource } : {}),
     build: {
       command: manifest.build,
       exitCode: build.exitCode,

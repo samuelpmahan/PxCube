@@ -1,5 +1,12 @@
 # Generation comes before packaging
 
+Update: the local Node manifest-to-crisp seam is now implemented and tested.
+See [crisp-scaffolds.md](crisp-scaffolds.md): tidy supplies the live definition,
+`crisp scaffold` generates the Experience, and `crisp package` consumes that
+definition on every build. The historical inspection below explains the starting
+point; locating the original `neat add` wrapper is not a prerequisite for using
+this new path. BuildBag is its first generated scaffold.
+
 Sam's correction, 2026-09-14: `neat add` internally uses crisp to generate
 `exp/<task>/*`; crisp already knows build and assembly. The architectural map must
 start with that generation step. The current local PxCube runner starts farther

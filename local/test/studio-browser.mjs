@@ -5,11 +5,11 @@ import http from 'node:http';
 import {root} from '../run.mjs';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
 const browser=await chromium.launch({headless:true,...(process.env.CHROME_BIN?{executablePath:process.env.CHROME_BIN}:{})});
-const evidence=path.join(root,'evidence/studio-sandboxes');fs.mkdirSync(evidence,{recursive:true});
+const evidence=path.join(root,process.env.PXCUBE_EVIDENCE_DIR ?? 'evidence/studio-sandboxes');fs.mkdirSync(evidence,{recursive:true});
 const checks=[],errors=[],requests=[];
 const latest=JSON.parse(fs.readFileSync(path.join(root,'.pxcube/latest.json'))),site=path.join(root,latest.site);
 const server=http.createServer((req,res)=>{
- try{const pathname=new URL(req.url,'http://localhost').pathname;if(!pathname.startsWith('/PxCube/'))throw Error('prefix');const file=path.resolve(site,decodeURIComponent(pathname.slice(8))||'index.html');if(!file.startsWith(site+path.sep))throw Error('path');const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.json':'application/json'};res.writeHead(200,{'Content-Type':mime[path.extname(file)]??'application/octet-stream'}).end(fs.readFileSync(file));}catch{res.writeHead(404).end()}
+ try{const pathname=new URL(req.url,'http://localhost').pathname;if(!pathname.startsWith('/PxCube/'))throw Error('prefix');const file=path.resolve(site,decodeURIComponent(pathname.slice(8))||'index.html');if(!file.startsWith(site+path.sep))throw Error('path');const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.json':'application/json'};const bytes=fs.readFileSync(file);res.writeHead(200,{'Content-Type':mime[path.extname(file)]??'application/octet-stream'}).end(bytes);}catch{res.writeHead(404).end()}
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 function record(mode,text){checks.push({mode,text});console.log('PASS',mode,text)}
@@ -68,7 +68,7 @@ try{
   await host().locator('#session').selectOption('mock.explore-shelf.2');assert.deepEqual((await model()).case,shelfTest.case);
   assert.equal(await page.evaluate(()=>localStorage.getItem('discstudio.pxc.shelf.v1')),'real user data untouched');
   record(mode,'reload restores both interactive surfaces, keeps numbered Shelf evidence, and never writes the real Studio shelf');
-  const report=await (await page.request.get(new URL('pxcube-run.json',url).href)).json();assert.equal(report.results.length,4);assert.ok(report.results.every(r=>r.ok));
+  const report=await (await page.request.get(new URL('pxcube-run.json',url).href)).json();for(const id of ['hello','mock-smoke','upload-disc-to-shelf','explore-shelf'])assert.ok(report.results.some(r=>r.id===id&&r.ok));assert.ok(report.results.every(r=>r.ok));
   const imported=await (await page.request.get(new URL('experiences/explore-shelf/studio-import.json',url).href)).json();assert.equal(imported.source.commit,'6f7937bc1eebd22bf3135f50c9edf714b122902a');assert.equal(imported.compatibility.status,'legacy adapter; not full MockPxC integration');
   await page.screenshot({path:path.join(evidence,mode+'-retained.png')});await page.close();
  }

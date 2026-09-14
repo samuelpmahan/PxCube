@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve, relative } from 'node:path';
+import { provideExperience } from '../../tidy/manifest.mjs';
 
-export async function loadManifest(appDir) {
+export async function loadManifest(appDir, { providerRoot } = {}) {
   const path = join(appDir, 'experience.json');
   let raw;
   try {
@@ -9,11 +10,20 @@ export async function loadManifest(appDir) {
   } catch (err) {
     throw new Error(`manifest: cannot read ${path}: ${err.message}`);
   }
+  let manifest;
   try {
-    return JSON.parse(raw);
+    manifest = JSON.parse(raw);
   } catch (err) {
     throw new Error(`manifest: ${path} is not valid JSON: ${err.message}`);
   }
+  if (manifest?.tidy) {
+    if (Object.keys(manifest).length !== 1 || typeof manifest.tidy.type !== 'string') throw Error('manifest: a tidy reference must contain only tidy.type');
+    const repo = resolve(appDir, '../..');
+    const supplied = provideExperience(providerRoot ?? repo, manifest.tidy.type);
+    if (relative(repo, resolve(appDir)) !== supplied.root) throw Error('manifest: tidy root differs from app directory');
+    return { ...supplied.manifest, manifestSource: { path: supplied.source, type: supplied.type, digest: supplied.digest } };
+  }
+  return manifest;
 }
 
 const MOUNT_NAME_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;

@@ -109,6 +109,61 @@
       "sourceHash": "f4179e57237485b173048bb9bb8ea7a157e23503773679587846e9e6b9181dcd",
       "sharedToolsHash": "5dde57c7b27ee3a223ba9311e483e2ba02acdd92bb1fc3c1328ad50f75027c51",
       "registeredAt": "2026-09-14T15:23:35.741Z"
+    },
+    "build-bag": {
+      "track": "exp",
+      "manifest": {
+        "title": "BuildBag",
+        "description": "Choose the discs you want to carry. A sandbox frame ready for the bag-building Experience.",
+        "mounts": [
+          "shelf"
+        ],
+        "build": "node build.mjs",
+        "outDir": "dist",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-forms"
+        ],
+        "scaffold": {
+          "template": "sandbox@1",
+          "world": "shelf",
+          "inputs": [
+            {
+              "address": "px.discs",
+              "label": "Your shelf",
+              "for": "The available discs. Selection of physical copies is the first behavior to connect."
+            }
+          ],
+          "outputs": [
+            {
+              "address": "px.bags",
+              "label": "Your saved bag",
+              "for": "An ordered collection of selected physical discs. This output has not been implemented."
+            }
+          ],
+          "steps": [
+            "Choose discs",
+            "Arrange your bag",
+            "Create bag"
+          ],
+          "draft": {
+            "address": "sc.draft",
+            "field": "name",
+            "label": "Bag name"
+          }
+        },
+        "id": "build-bag",
+        "version": "0.1.0",
+        "manifestSource": {
+          "path": ".tidy/manifest.json",
+          "type": "pxcube-build-bag",
+          "digest": "60c88db807af598c31c113f5f9bbb10667edbc843b484bc153fefe8a84063ed2"
+        }
+      },
+      "sourceHash": "0da522c12ee65e944bbca359431a426914d980f94afb2bfed1ba06c9534d6384",
+      "sharedToolsHash": "48fde89c3215ebff569ae92ed65859a3c6b85dffbeaf1ff87173bc1e4d15dcde",
+      "registeredAt": "2026-09-14T18:17:49.061Z"
     }
   }
 }

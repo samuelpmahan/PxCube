@@ -16,7 +16,7 @@ const staticHost=http.createServer((req,res)=>{
   const file=path.resolve(site,pathname.slice('/PxCube/'.length)||'index.html');
   if(!file.startsWith(site+path.sep)){res.writeHead(404).end();return}
   const mime={'.html':'text/html','.mjs':'text/javascript','.js':'text/javascript','.css':'text/css','.json':'application/json'};
-  res.writeHead(200,{'Content-Type':mime[path.extname(file)]??'application/octet-stream'}).end(fs.readFileSync(file));
+  const bytes=fs.readFileSync(file);res.writeHead(200,{'Content-Type':mime[path.extname(file)]??'application/octet-stream'}).end(bytes);
  }catch{res.writeHead(404).end()}
 });
 await new Promise(resolve=>staticHost.listen(0,'127.0.0.1',resolve));
