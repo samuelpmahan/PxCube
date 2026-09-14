@@ -1,13 +1,17 @@
 # .github/workflows/experiences.yml
 #
 # Each Experience ships its own THING. The workflow discovers every
-# experiences/*/experience.json, builds each THING in its own matrix leg
-# (fail-fast: false, so one broken build never blocks the others), then
-# assembles a launcher Page: a shelf of Experiences, each running in a
-# sandboxed iframe with exactly the tokens its manifest declares.
+# experiences/*/experience.json, then delegates everything else to crisp:
+# each THING is packaged (`crisp package`: manifest and mount validation,
+# build, content-addressed output chunks, wiring-manifest receipt) and
+# verified (`crisp verify`: the chunks re-hashed against the receipt, the
+# honest check) in its own matrix leg (fail-fast: false, so one broken build
+# never blocks the others). The launcher then wires the resulting artifacts
+# together and the Page deploys.
 #
-# This stays a thin wrapper by design. The day crisp can build, test, and
-# package, these jobs call crisp and nothing else changes.
+# This file is a thin wrapper by design. All build, test, and package logic
+# lives in crisp/; this workflow only calls it. crisp's own test suite runs
+# first: a red packager blocks the whole Page.
 
 name: experiences
 
@@ -17,6 +21,7 @@ on:
     paths:
       - 'experiences/**'
       - 'launcher/**'
+      - 'crisp/**'
       - '.github/workflows/experiences.yml'
   workflow_dispatch:
 
@@ -26,6 +31,17 @@ permissions:
   id-token: write
 
 jobs:
+  crisp-selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: crisp self-test
+        # The packager must be green before it touches any THING.
+        run: node crisp/test/run.mjs
+
   discover:
     runs-on: ubuntu-latest
     outputs:
@@ -41,7 +57,7 @@ jobs:
           echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
 
   build:
-    needs: discover
+    needs: [discover, crisp-selftest]
     if: ${{ needs.discover.outputs.matrix != '[]' }}
     runs-on: ubuntu-latest
     strategy:
@@ -53,16 +69,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: build THING
-        # The manifest's build command is trusted exactly like this workflow
-        # file itself: both are in-repo. Anything goes, it just has to emit
-        # static files into outDir with an index.html at the root.
-        run: ${{ matrix.exp.build }}
-        working-directory: experiences/${{ matrix.exp.id }}
+      - name: package THING with crisp
+        run: |
+          node crisp/bin/crisp package "experiences/${{ matrix.exp.id }}"
+          node crisp/bin/crisp verify "experiences/${{ matrix.exp.id }}/.crisp/receipt.json" "experiences/${{ matrix.exp.id }}/${{ matrix.exp.outDir }}"
+      - name: stage artifact
+        run: |
+          mkdir -p "staging/${{ matrix.exp.id }}"
+          cp -r "experiences/${{ matrix.exp.id }}/${{ matrix.exp.outDir }}/." "staging/${{ matrix.exp.id }}/"
+          cp "experiences/${{ matrix.exp.id }}/.crisp/receipt.json" "staging/${{ matrix.exp.id }}/receipt.json"
       - uses: actions/upload-artifact@v4
         with:
           name: exp-${{ matrix.exp.id }}
-          path: experiences/${{ matrix.exp.id }}/${{ matrix.exp.outDir }}
+          path: staging/${{ matrix.exp.id }}
           if-no-files-found: error
 
   assemble:
