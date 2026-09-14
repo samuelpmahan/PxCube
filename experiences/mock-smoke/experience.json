@@ -1,0 +1,13 @@
+{
+  "title": "MockPxC · retained worlds",
+  "description": "Edit a bag name in one seeded mount. Inspect its value, open another iteration, and compare what stayed put.",
+  "version": "0.1.0",
+  "track": "exp",
+  "mounts": ["shelf"],
+  "entry": "index.html",
+  "outDir": "dist",
+  "build": "node build.mjs",
+  "sandbox": ["allow-scripts", "allow-same-origin"],
+  "storage": "localStorage: retained JSON mock worlds. Trusted same-origin demonstration; not a hostile-code boundary.",
+  "binding": "The logical shelf seed is allocated as a fresh mock.<id>.<iterator> world at runtime. Inner stored names retain px/fn/oc/sc only."
+}

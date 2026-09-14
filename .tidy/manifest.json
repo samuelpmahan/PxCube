@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "types": {
+    "pxcube-hello": {
+      "version": "0.1.0",
+      "root": "experiences/hello",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
+    },
+    "pxcube-mock-smoke": {
+      "version": "0.1.0",
+      "root": "experiences/mock-smoke",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
+    }
+  }
+}

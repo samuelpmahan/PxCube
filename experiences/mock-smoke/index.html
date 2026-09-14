@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MockPxC · retained worlds</title><link rel="stylesheet" href="style.css"></head><body><main>
+<p class="eyebrow">PxCube / MockPxC</p><h1>One seed. Separate worlds.</h1>
+<p>Edit the bag name in one world, then start another iteration. The old world's value stays available. These are the tiny shelf fixtures from MockPxC.</p>
+<div class="toolbar"><label>Test id <input id="run-id" value="shelf" pattern="[A-Za-z][A-Za-z0-9_-]*"></label><button id="new-run">New iteration · keep previous</button><button id="smoke">Run visible isolation check</button></div>
+<p id="status" role="status">Ready.</p><div id="worlds"></div>
+<details><summary>Inspect the mount owner</summary><p>The console handle is <code>window.pxCubeMocks</code>. The panels, checks, and console read the same owner. Snapshots are JSON values; this is not the Studio Part kernel.</p><pre id="inspection"></pre></details>
+<p class="foot">Retained in this browser on this origin. Storage errors are shown; nothing is automatically deleted. A running copy on a different origin has its own storage.</p>
+</main><script type="module" src="app.mjs"></script></body></html>

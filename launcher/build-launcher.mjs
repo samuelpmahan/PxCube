@@ -127,6 +127,8 @@ const html = `<!doctype html>
   header { padding: 24px 24px 0; }
   h1 { margin: 0 0 4px; font-size: 22px; }
   header p { margin: 0 0 16px; color: #999; font-size: 14px; }
+  header a { color: #a9d9c9; margin-right: 18px; }
+  #refresh-build { color: #111; background: #bde6d6; border: 0; border-radius: 6px; padding: 6px 10px; cursor: pointer; }
   #tabs { display: flex; gap: 8px; padding: 0 24px; border-bottom: 1px solid #2c2c34; }
   #tabs button { background: none; border: none; border-bottom: 2px solid transparent; color: #999; padding: 10px 4px; margin-bottom: -1px; cursor: pointer; font: inherit; font-size: 14px; }
   #tabs button.active { color: #eee; border-bottom-color: #eee; }
@@ -166,6 +168,7 @@ const html = `<!doctype html>
 <header>
   <h1>Experiences</h1>
   <p>Clean is the trunk. Exp is the jungle. Each THING runs sandboxed in its own frame.</p>
+  <p><a href="./neat.html">Work board</a><a href="./pxcube-run.json">Build record</a><button id="refresh-build" hidden>New build ready · reload</button></p>
 </header>
 <nav id="tabs">
   <button data-tab="clean" class="active">Clean</button>
@@ -194,6 +197,19 @@ ${manifests.map(manifestAccordion).join('')}
     tabs.forEach((x) => x.classList.toggle('active', x === b));
     document.querySelectorAll('.tab').forEach((t) => { t.hidden = t.id !== 'tab-' + b.dataset.tab; });
   }));
+  if (!document.querySelector('#tab-clean .card')) document.querySelector('[data-tab="exp"]').click();
+  let initialRun;
+  async function checkBuild() {
+    try {
+      const response = await fetch('./pxcube-run.json', {cache:'no-store'});
+      if (!response.ok) return;
+      const run = await response.json();
+      if (!initialRun) initialRun = run.runId;
+      document.getElementById('refresh-build').hidden = run.runId === initialRun;
+    } catch { /* A plain older launcher need not have a local build report. */ }
+  }
+  document.getElementById('refresh-build').onclick = () => location.reload();
+  checkBuild(); setInterval(checkBuild, 5000);
   document.addEventListener('click', (e) => {
     const el = e.target.closest('.card');
     if (!el || !el.dataset.id) return;

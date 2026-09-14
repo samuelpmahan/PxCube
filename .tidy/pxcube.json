@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "apps": {
+    "hello": {
+      "track": "exp",
+      "manifest": {
+        "build": "mkdir -p dist && cp index.html dist/",
+        "description": "First light: a trivial THING proving the sandbox holds.",
+        "entry": "index.html",
+        "mounts": [],
+        "outDir": "dist",
+        "sandbox": [
+          "allow-scripts"
+        ],
+        "title": "Hello THING",
+        "track": "exp",
+        "version": "0.1.0"
+      },
+      "sourceHash": "c651c7a04a664e95e4a0e6cd034e922e7a79d56b53f61fc5586736893fe31e55",
+      "sharedToolsHash": "fbf724901172a9ed85da8ae669634d0f80ccd9ff25a7fbf857cb04d8bdb271d0",
+      "registeredAt": "2026-09-14T13:58:38.205Z"
+    },
+    "mock-smoke": {
+      "track": "exp",
+      "manifest": {
+        "title": "MockPxC · retained worlds",
+        "description": "Edit a bag name in one seeded mount. Inspect its value, open another iteration, and compare what stayed put.",
+        "version": "0.1.0",
+        "track": "exp",
+        "mounts": [
+          "shelf"
+        ],
+        "entry": "index.html",
+        "outDir": "dist",
+        "build": "node build.mjs",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin"
+        ],
+        "storage": "localStorage: retained JSON mock worlds. Trusted same-origin demonstration; not a hostile-code boundary.",
+        "binding": "The logical shelf seed is allocated as a fresh mock.<id>.<iterator> world at runtime. Inner stored names retain px/fn/oc/sc only."
+      },
+      "sourceHash": "534dd029b9fe7f2ee94afaa9310316c16ff1b4958bb443547cac4023aca30abc",
+      "sharedToolsHash": "fbf724901172a9ed85da8ae669634d0f80ccd9ff25a7fbf857cb04d8bdb271d0",
+      "registeredAt": "2026-09-14T13:58:38.278Z"
+    }
+  }
+}
