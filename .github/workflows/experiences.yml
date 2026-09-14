@@ -1,0 +1,97 @@
+# .github/workflows/experiences.yml
+#
+# Each Experience ships its own THING. The workflow discovers every
+# experiences/*/experience.json, builds each THING in its own matrix leg
+# (fail-fast: false, so one broken build never blocks the others), then
+# assembles a launcher Page: a shelf of Experiences, each running in a
+# sandboxed iframe with exactly the tokens its manifest declares.
+#
+# This stays a thin wrapper by design. The day crisp can build, test, and
+# package, these jobs call crisp and nothing else changes.
+
+name: experiences
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'experiences/**'
+      - 'launcher/**'
+      - '.github/workflows/experiences.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: set-matrix
+        run: |
+          matrix=$(for d in experiences/*/; do
+            [ -f "${d}experience.json" ] || continue
+            jq -c --arg id "$(basename "$d")" '. + {id: $id}' "${d}experience.json"
+          done | jq -cs '.')
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: discover
+    if: ${{ needs.discover.outputs.matrix != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        exp: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: build THING
+        # The manifest's build command is trusted exactly like this workflow
+        # file itself: both are in-repo. Anything goes, it just has to emit
+        # static files into outDir with an index.html at the root.
+        run: ${{ matrix.exp.build }}
+        working-directory: experiences/${{ matrix.exp.id }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exp-${{ matrix.exp.id }}
+          path: experiences/${{ matrix.exp.id }}/${{ matrix.exp.outDir }}
+          if-no-files-found: error
+
+  assemble:
+    needs: [discover, build]
+    # Ship what built; mark the rest failed on the launcher. Never let one
+    # red THING cancel the whole Page.
+    if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'failure') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: exp-*
+          path: staging
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: assemble launcher page
+        run: node launcher/build-launcher.mjs
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    needs: assemble
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
