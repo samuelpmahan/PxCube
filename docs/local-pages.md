@@ -8,9 +8,10 @@ node local/run.mjs dev
 ```
 
 Open `http://127.0.0.1:4321/`. The launcher contains Hello and MockPxC. Select
-MockPxC, edit one bag name, and choose New iteration. The first world keeps its
-value; the new one starts from the same shelf seed. Run visible isolation check
-operates the actual Save control and compares the two worlds with earlier runs.
+MockPxC opens the interactive `mock.shelf` sandbox. Edit its bag name, then
+choose Open interactive sandbox to resume it or New test run to create a fresh
+`mock.shelf.<iterator>`. Run visible isolation check operates the actual Save
+control in numbered test worlds and checks earlier worlds, including your workspace.
 Expand the inspection panel or use `window.pxCubeMocks` in that frame's console.
 
 The Work board link is actual neat HTML. Build record contains crisp source and
@@ -55,9 +56,11 @@ outDir: the pre-hardening crisp hasher excludes directory names, not nested path
 ## Logical seed versus allocated mount
 
 `experience.json` declares the logical seed `shelf`. The app's reference
-`shelf.px.discs` is checked by crisp. At runtime the owner binds that seed to
-`mock.<id>.<iterator>`, e.g. `mock.shelf.2.px.discs`. This is an allocated instance,
-not a dotted manifest mount sneaked past the current single-name grammar.
+`shelf.px.discs` is checked by crisp. At runtime `openInteractive(id)` binds that
+seed to `mock.<id>`, and `createTestRun(id)` creates `mock.<id>.<iterator>`.
+For example, `mock.shelf.px.discs` is in the continuing workspace and
+`mock.shelf.2.px.discs` is in its second isolated test run. These are allocated
+instances; the manifest still declares the logical seed using its single name.
 
 `local/mock-mounts.mjs` clones the exported MockPxC seed and routes a handle's
 qualified reads only inside that handle. Stored inner addresses remain `px`,
@@ -68,10 +71,14 @@ rule as the original fixtures. The original fixture worlds remain unchanged.
 
 The smoke app retains JSON worlds, seed snapshots, seed source identity, and
 write history in localStorage. Back/reopen and page reload restore those values;
-a new iterator never overwrites its predecessor. Storage quota failure leaves
+reopening an interactive sandbox does not reseed or write it, and a new test
+iterator never overwrites its predecessor or copies incidental workspace edits. Storage quota failure leaves
 previous state intact. A second owner with stale storage is refused, rather than
 silently overwriting another owner's updates. There is no automatic space policy.
-This demo opts into a trusted same-origin frame to use browser storage. These
+New snapshots record `kind: interactive` without an iteration field, or
+`kind: test` with one. Older snapshots retain their exact material and display
+“purpose unrecorded”; a number alone is not evidence of how an earlier run was
+used. This demo opts into a trusted same-origin frame to use browser storage. These
 handles separate application state; they are not hostile-code security boundaries.
 
 MockPxC still returns plain fixture values, including static `fn` samples. Its
@@ -93,8 +100,9 @@ CLI. They are not represented as negative fixtures that already failed unchanged
 The existing `crisp/test/helpers.mjs` computes a doubled crisp/bin path; these
 checks call the actual CLI path without changing Muse's in-progress suite.
 
-`evidence/local-pages/` records the test output, browser checks and verified source
-hashes. The browser check serves the exact artifact under both a local root and a
+`evidence/local-pages/` retains the original packaging evidence. The address-kind
+refinement has fresh evidence in `evidence/sandbox-kinds/`: five focused owner
+tests and 23 browser checks, with the exact source hashes tested. The browser check serves the exact artifact under both a local root and a
 Pages-style `/PxCube/` prefix without special CORS headers. It tests the actual
 controls, mount values, retained iterations, frame closure and full page reload.
 It is repeatable with Playwright plus Chromium; set PLAYWRIGHT_MODULE and CHROME_BIN

@@ -5,8 +5,10 @@ execution path. Inspected PxCube main: `d1de6847e650ce68eabb3d08c668a66cee7de637
 PnC consumer candidate: `6f7937b`. PnC working branch: `codex/studio-workbench`, previous committed base `9e6a39f`.
 Local candidate commits are for review; neither acceptance nor publication is claimed.
 
-Sam's latest mount rule: **each E2E run gets `mock.<id>.<iterator>.*`**. A new
-iteration keeps the previous run inspectable. Reclaim/overwrite for actual space
+Sam's clarified mount rule: **interactive sandboxes use `mock.<id>.*`;
+unit/E2E runs use `mock.<id>.<iterator>.*`**. The iterator marks a fresh test
+execution. Reopening an interactive sandbox resumes its current state. A new
+test iteration keeps the previous run inspectable. Reclaim/overwrite for actual space
 pressure, not as the default meaning of Run again. MockPxC supplies test seeds;
 tests must still exercise the real application operations and producing links.
 
@@ -88,7 +90,8 @@ adapter. Source and shared-tool drift remain visible, including for Clean entrie
 
 The MockPxC demo uses the actual exported seeds, and a small resolver extraction
 adds resolveWorldValue(value, address) so owned worlds use your existing dotted-key
-algorithm. local/mock-mounts.mjs allocates mock.<id>.<iterator> and retains seed,
+algorithm. local/mock-mounts.mjs opens a stable mock.<id> interactive world or
+allocates a fresh mock.<id>.<iterator> test run, and retains seed,
 value and write history across reloads via a storage adapter. Qualified reads
 are confined to the selected handle; inner stored names have no mount prefix.
 The manifest still declares the logical seed shelf: this separates declaration
@@ -132,3 +135,8 @@ value model behind an inspector that looks equivalent.
 Local evidence: PxCube evidence/local-pages, and PnC
 .neat/ds/experiences/evidence/sandbox-consumer. Browser checks exercise actual
 controls; passing them is not Sam's human review or tidy promotion.
+
+Address refinement: `openInteractive(id, world)` and `createTestRun(id, world)`
+replace the ambiguous `create`. Snapshots explicitly record their kind; older
+numbered snapshots remain unclassified and retain their original data. Interactive
+handles reject reads into a nested test mount even though the text prefix matches.

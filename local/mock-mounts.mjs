@@ -1,4 +1,4 @@
-import { worlds, resolveWorldValue } from '../mock-pxc/mock-pxc.mjs';
+import { worlds, resolveWorldValue, NAMESPACES } from '../mock-pxc/mock-pxc.mjs';
 
 const clone = value => structuredClone(value);
 const validId = id => typeof id === 'string' && /^[A-Za-z][A-Za-z0-9_-]*$/.test(id);
@@ -28,7 +28,7 @@ export function createMockMounts({ storage, key, seedIdentity }) {
       name,
       resolve(address) {
         const prefix = name + '.';
-        if (!address.startsWith(prefix)) throw Error(`Address is outside ${name}`);
+        if (typeof address !== 'string' || !address.startsWith(prefix) || !NAMESPACES.includes(address.slice(prefix.length).split('.')[0])) throw Error(`Address is outside ${name}`);
         return clone(resolveWorldValue(entry(name).value, address.slice(prefix.length)));
       },
       writeScratch(address, value) {
@@ -45,16 +45,34 @@ export function createMockMounts({ storage, key, seedIdentity }) {
       inspect: () => clone(entry(name)),
     });
   }
+  function validateSeed(id, world) {
+    if (!validId(id) || !Object.hasOwn(worlds, world)) throw Error('Known world and simple sandbox id required');
+  }
+  function allocate({name, id, world, kind, iteration}) {
+    const next = clone(state);
+    next.runs[name] = { name, id, kind, ...(iteration === undefined ? {} : {iteration}), world, seedIdentity, seed: clone(worlds[world]), value: clone(worlds[world]), changes: [] };
+    commit(next); return handle(name);
+  }
   return Object.freeze({
-    create(id, world = 'shelf') {
-      if (!validId(id) || !Object.hasOwn(worlds, world)) throw Error('Known world and simple run id required');
-      const iteration = Math.max(0, ...Object.values(state.runs).filter(run => run.id === id).map(run => run.iteration)) + 1;
-      const name = `mock.${id}.${iteration}`, next = clone(state);
-      next.runs[name] = { name, id, iteration, world, seedIdentity, seed: clone(worlds[world]), value: clone(worlds[world]), changes: [] };
-      commit(next); return handle(name);
+    openInteractive(id, world = 'shelf') {
+      validateSeed(id, world);
+      const name = `mock.${id}`;
+      if (Object.hasOwn(state.runs, name)) {
+        const existing = entry(name);
+        if (existing.kind !== 'interactive' || existing.world !== world) throw Error(`Existing sandbox ${name} has a different kind or world`);
+        return handle(name);
+      }
+      return allocate({name, id, world, kind:'interactive'});
+    },
+    createTestRun(id, world = 'shelf') {
+      validateSeed(id, world);
+      const iteration = Math.max(0, ...Object.values(state.runs).filter(run => run.id === id && Number.isSafeInteger(run.iteration)).map(run => run.iteration)) + 1;
+      if (!Number.isSafeInteger(iteration)) throw Error(`Test iterator exhausted for ${id}`);
+      return allocate({name:`mock.${id}.${iteration}`, id, world, kind:'test', iteration});
     },
     handle,
-    list: () => Object.values(state.runs).map(({ name, id, iteration, world, seedIdentity }) => ({name,id,iteration,world,seedIdentity})),
+    // Earlier snapshots did not record purpose; retain them without inventing it.
+    list: () => Object.values(state.runs).map(({ name, id, kind, iteration, world, seedIdentity }) => ({name,id,kind:kind ?? 'legacy',iteration,world,seedIdentity})),
     inspect: () => clone(state),
   });
 }
