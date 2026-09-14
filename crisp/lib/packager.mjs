@@ -90,10 +90,6 @@ function tailLines(text, n = 20) {
   return text.trim().split('\n').slice(-n).join('\n');
 }
 
-function shortHash(hex) {
-  return `${hex.slice(0, 8)}...`;
-}
-
 function defaultPxcPath() {
   return new URL('../../mock-pxc/mock-pxc.mjs', import.meta.url).href;
 }
@@ -104,14 +100,10 @@ async function gather(appDir, pxcPath) {
   if (shapeErrors.length > 0) {
     throw new PackageError('manifest', shapeErrors.join('; '));
   }
+  // Provenance only, never a gate: exp work is a live pointer, so there is no
+  // "drift" to detect. Content hashes live on the built chunks, and only get
+  // recorded into a manifest when tidy freezes the build at promotion.
   const sourceHash = await hashSources(appDir, [manifest.outDir, '.crisp']);
-  if (manifest.sourceHash && manifest.sourceHash !== sourceHash) {
-    throw new PackageError(
-      'drift',
-      `source/manifest drift: manifest records sourceHash ${shortHash(manifest.sourceHash)} ` +
-        `but current tree hashes to ${shortHash(sourceHash)}`,
-    );
-  }
   const pxc = await import(pxcPath ?? defaultPxcPath());
   for (const mount of manifest.mounts) {
     if (!pxc.hasWorld(mount)) {
@@ -178,6 +170,22 @@ export async function packageApp(appDir, { pxcPath } = {}) {
     throw new PackageError('output', `output dir "${manifest.outDir}" contains no files after build`);
   }
 
+  // Content-address the chunks that actually deploy. The receipt is a wiring
+  // manifest: the app wires to its entry chunk, which wires to chunk hashes.
+  // This is the artifact's identity. Sources changing and repackaging just
+  // produces new chunk hashes (a new version), never "drift".
+  const chunks = [];
+  for (const rel of outputs) {
+    const bytes = await readFile(join(outDirAbs, rel));
+    chunks.push({ path: rel, sha256: createHash('sha256').update(bytes).digest('hex') });
+  }
+  const entryChunk = chunks.find((c) => c.path === manifest.entry)
+    // crisp's canonical build maps src/** to the dist root, so an entry of
+    // src/index.html wires to the index.html chunk. Exact match wins; the
+    // stripped form covers builds crisp itself scaffolded.
+    ?? chunks.find((c) => c.path === manifest.entry.replace(/^src\//, ''))
+    ?? null;
+
   const crispDir = join(appDir, '.crisp');
   await mkdir(crispDir, { recursive: true });
   await writeFile(
@@ -189,10 +197,14 @@ export async function packageApp(appDir, { pxcPath } = {}) {
   const receipt = {
     app: manifest.title,
     version: manifest.version ?? null,
+    source: manifest.source ?? null, // tidy registry pointer for exp work, e.g. "exp/hello"
+    entry: manifest.entry,
+    entryChunk: entryChunk ? entryChunk.sha256 : null,
     mounts: manifest.mounts,
     resolvedMounts: manifest.mounts,
     usedMounts,
-    sourceHash,
+    chunks,
+    sourceHash, // provenance: which tree built this. Never a gate.
     manifestHash: createHash('sha256').update(manifestRaw).digest('hex'),
     build: {
       command: manifest.build,
@@ -200,7 +212,6 @@ export async function packageApp(appDir, { pxcPath } = {}) {
       durationMs: build.durationMs,
       timedOut: build.timedOut,
     },
-    outputs,
     validation: {
       declaredMounts: manifest.mounts,
       usedMounts,
