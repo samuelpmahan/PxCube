@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+import { join, resolve } from 'node:path';
+import { PackageError, packageApp, checkApp } from '../lib/packager.mjs';
+
+const VERSION = '0.1.0';
+
+function usage() {
+  return [
+    'usage: crisp <command> [options]',
+    '',
+    'commands:',
+    '  package <app-dir> [--pxc <path>]   build and package an experience app',
+    '  check <app-dir> [--pxc <path>]      validate manifest, mounts and source hash',
+    '  --help, -h                          show this help',
+    '  --version, -v                       show version',
+    '',
+    'exit codes: 0 ok; 1 manifest/mounts/drift; 2 build/output; 3 usage error',
+  ].join('\n');
+}
+
+function parseArgs(argv) {
+  const positional = [];
+  let pxc;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--pxc') {
+      pxc = argv[++i];
+      if (!pxc) return { error: '--pxc requires a path' };
+    } else if (argv[i].startsWith('--pxc=')) {
+      pxc = argv[i].slice('--pxc='.length);
+    } else {
+      positional.push(argv[i]);
+    }
+  }
+  return { positional, pxc };
+}
+
+function fail(code, message) {
+  process.stderr.write(`${message}\n`);
+  process.exit(code);
+}
+
+async function main() {
+  const { positional, pxc, error } = parseArgs(process.argv.slice(2));
+  if (error) fail(3, usage());
+
+  const [command, appDirArg] = positional;
+  if (command === '--help' || command === '-h') {
+    process.stdout.write(usage() + '\n');
+    process.exit(0);
+  }
+  if (command === '--version' || command === '-v') {
+    process.stdout.write(`crisp ${VERSION}\n`);
+    process.exit(0);
+  }
+
+  if ((command !== 'package' && command !== 'check') || !appDirArg) {
+    fail(3, usage());
+  }
+  const appDir = resolve(appDirArg);
+  const opts = pxc ? { pxcPath: pxc } : {};
+
+  try {
+    if (command === 'check') {
+      const result = await checkApp(appDir, opts);
+      process.stdout.write(
+        `ok: mounts [${result.mounts.join(', ')}] used [${result.usedMounts.join(', ')}] ` +
+          `sourceHash ${result.sourceHash.slice(0, 8)}\n`,
+      );
+      process.exit(0);
+    }
+    const receipt = await packageApp(appDir, opts);
+    process.stdout.write(
+      `packaged ${receipt.app}: ${receipt.outputs.length} outputs, sourceHash ${receipt.sourceHash.slice(0, 8)}...\n`,
+    );
+    process.stdout.write(`receipt: ${join(appDir, '.crisp', 'receipt.json')}\n`);
+    process.exit(0);
+  } catch (err) {
+    if (err instanceof PackageError) {
+      const exitCode = err.code === 'build' || err.code === 'output' ? 2 : 1;
+      fail(exitCode, `crisp: ${err.code}: ${err.message}`);
+    }
+    throw err;
+  }
+}
+
+main();
