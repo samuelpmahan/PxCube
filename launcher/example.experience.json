@@ -1,0 +1,1 @@
+{"build":"npm ci && npm run build","description":"Two-rack tactile shelf walk. Ninja build, runs sandboxed.","entry":"src/main.js","notes":"If this crashes, the shelf survives.","outDir":"dist","sandbox":["allow-scripts"],"title":"Shelf as the Focus","track":"exp","version":"0.1.0"}
