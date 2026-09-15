@@ -99,6 +99,9 @@ try {
   assert.deepEqual(await owning(), saved);
   assert.match(await page.locator('[data-open="build-bag"] small').textContent(), /in view/);
   await frame.locator('#new-test').click(); await settle();
+  if (await page.locator('#control-drawer-toggle').getAttribute('aria-expanded') === 'false') {
+    await page.locator('#control-drawer-toggle').click();
+  }
   await page.locator('#navigation [data-view="mounts"]').click();
   await page.locator('#mount-count').filter({ hasText: '2' }).waitFor();
   assert.equal(await page.locator('#mount-rows tr').count(), 2);
@@ -109,6 +112,9 @@ try {
   if (demo) { await frame.locator('#session').selectOption('mock.build-bag'); await settle(); }
   else await frame.locator('#interactive').click();
   await page.screenshot({ path: path.join(evidence, 'experience.png') });
+  if (await page.locator('#control-drawer-toggle').getAttribute('aria-expanded') === 'false') {
+    await page.locator('#control-drawer-toggle').click();
+  }
   await page.locator('#inspect-owner').click();
   const ownerState = JSON.parse(await page.locator('#inspector-value').textContent());
   assert.deepEqual(ownerState.runs['mock.build-bag'], saved);
