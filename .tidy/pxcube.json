@@ -23,7 +23,7 @@
     "mock-smoke": {
       "track": "exp",
       "manifest": {
-        "title": "MockPxC \u00b7 retained worlds",
+        "title": "MockPxC · retained worlds",
         "description": "Edit a bag name in one seeded mount. Inspect its value, open another iteration, and compare what stayed put.",
         "version": "0.1.0",
         "track": "exp",

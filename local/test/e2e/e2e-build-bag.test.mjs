@@ -18,6 +18,7 @@ test('the shipped BuildBag creates an ordered bag of exact physical copies', asy
   await model.patch({ name: 'Fieldwork', selection: selected });
   const reordered = await model.reorder(2, 0);
   assert.deepEqual(reordered, [selected[2], selected[0], selected[1]]);
+  await model.patch({ selection: reordered });
   const address = await model.createBag(), bag = model.value(address);
   assert.equal(bag.name, 'Fieldwork');
   assert.deepEqual(bag.versions.map(item => item.address), reordered);
