@@ -49,13 +49,17 @@
     el.addEventListener('pointerleave', off);
   });
 
-  var rom = window.ROM;
   var acc = 0, last = performance.now(), STEP = 1000 / 60;
   function frame(now) {
     acc += Math.min(now - last, 250);
     last = now;
-    while (acc >= STEP) { rom.tick(input, save); acc -= STEP; }
-    rom.draw(ctx, save);
+    // Resolved lazily so the ROM registers whenever its script runs,
+    // regardless of tag order. A missing ROM just idles the console.
+    var rom = window.ROM;
+    if (rom) {
+      while (acc >= STEP) { rom.tick(input, save); acc -= STEP; }
+      rom.draw(ctx, save);
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
