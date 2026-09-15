@@ -87,7 +87,7 @@ const discs=Array.from({length:50},(_,i)=>{const base=molds[i%10],copy=Math.floo
 const storageKey='discstudio.accepted-shelf.bags.v1';
 try { const saved=JSON.parse(localStorage.getItem(storageKey)||'null'); if(saved&&Array.isArray(saved.bags)){ui.bags=saved.bags.filter(b=>b&&Array.isArray(b.discIds));ui.currentBagId=saved.currentBagId??null;} } catch {}
 const restoredBag=ui.bags.find(b=>b.id===ui.currentBagId);if(restoredBag)ui.shortlist=restoredBag.discIds.filter(id=>Number.isInteger(id)&&id>=0&&id<discs.length);
-function persistBags(){try{localStorage.setItem(storageKey,JSON.stringify({prototype:'accepted-shelf-local-state',bags:ui.bags,currentBagId:ui.currentBagId}));}catch{}}
+function persistBags(){try{const state={prototype:'accepted-shelf-local-state',bags:ui.bags,currentBagId:ui.currentBagId};localStorage.setItem(storageKey,JSON.stringify(state));const current=ui.bags.find(b=>b.id===ui.currentBagId);const bag=current?{address:`demo.bag.${current.id}`,name:current.name,discIds:current.discIds.map(id=>`demo.disc.${id}`),versions:current.discIds.map(id=>({address:`demo.disc.${id}`,id:`demo.disc.${id}`}))}:null;localStorage.setItem('pxcube.demo.v1:handoff:your-shelf-to-on-course',JSON.stringify({version:1,source:'your-shelf',selectedDisc:ui.selected===null?null:`demo.disc.${ui.selected}`,bag,updatedAt:Date.now()}));}catch{}}
 const neighbors=[...discs].sort((a,b)=>a.manufacturer.localeCompare(b.manufacturer,'en')||a.mold.localeCompare(b.mold,'en'));
 const moldKey=d=>JSON.stringify([d.manufacturer,d.mold]);
 const copyOrder=(a,b)=>a.plastic.localeCompare(b.plastic,'en',{sensitivity:'base'})||b.weight-a.weight;

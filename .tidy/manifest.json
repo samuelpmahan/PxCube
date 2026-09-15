@@ -135,6 +135,20 @@
       "clean": "clean",
       "experiments": "exp",
       "tests": []
+    },
+    "pxcube-your-shelf": {
+      "version": "0.1.0",
+      "root": "experiences/your-shelf",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
+    },
+    "pxcube-on-course": {
+      "version": "0.1.0",
+      "root": "experiences/on-course",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
     }
   }
 }

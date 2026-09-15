@@ -278,6 +278,77 @@
       "sourceHash": "b35cf3af3f6f4770733348afea7a3e1b518a21841925325a211e025cbd260f13",
       "sharedToolsHash": "e2e91a7ae072669ddab566950353e2af75325722d67e4a5f9e616a482aa5740c",
       "registeredAt": "2026-09-15T02:42:28.245Z"
+    },
+    "your-shelf": {
+      "track": "exp",
+      "manifest": {
+        "id": "your-shelf",
+        "title": "Your Shelf",
+        "description": "Add a disc, browse your retained collection, and build the bag you are carrying today.",
+        "version": "0.1.0",
+        "track": "exp",
+        "mounts": [
+          "studio"
+        ],
+        "entry": "index.html",
+        "outDir": "dist",
+        "build": "node build.mjs",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-downloads",
+          "allow-modals",
+          "allow-forms"
+        ],
+        "studio": {
+          "mode": "shelf",
+          "sourceCommit": "6f7937bc1eebd22bf3135f50c9edf714b122902a",
+          "integration": "Existing Studio shelf model with mount-scoped retained state; add/import remains owned by UploadDiscToShelf.",
+          "interactive": "mock.your-shelf.*",
+          "tests": "mock.your-shelf.<iterator>.*"
+        },
+        "storage": "Only mount-scoped local storage. Trusted same-origin code; not a security boundary."
+      },
+      "sourceHash": "3e87fa693c7e1ae8d8cbf816be968ab3da951d683f07f9bdcde470401c89fdeb",
+      "sharedToolsHash": "dd93ed78d551c8a75c90133888f1afed54f52403d2f89d87139e628e70f48792",
+      "registeredAt": "2026-09-15T18:45:49.444Z"
+    },
+    "on-course": {
+      "track": "exp",
+      "manifest": {
+        "id": "on-course",
+        "title": "On Course",
+        "description": "Create, preview, and export the graphics made from your shelf.",
+        "version": "0.1.0",
+        "track": "exp",
+        "mounts": [
+          "studio"
+        ],
+        "entry": "index.html",
+        "outDir": "dist",
+        "build": "node build.mjs",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-downloads",
+          "allow-modals",
+          "allow-forms"
+        ],
+        "studio": {
+          "mode": "create",
+          "sourceCommit": "6f7937bc1eebd22bf3135f50c9edf714b122902a",
+          "integration": "Shared Studio model; create and export views retain the same selected disc, bag, captures, and export records.",
+          "interactive": "mock.on-course.*",
+          "tests": "mock.on-course.<iterator>.*"
+        },
+        "demo": {
+          "mode": "course"
+        },
+        "storage": "Only mount-scoped local storage. Trusted same-origin code; not a security boundary."
+      },
+      "sourceHash": "396951ad2c6fe86b81fb129035101eba3d6176c2f0f960dc3e4a3f7aa3e81d95",
+      "sharedToolsHash": "73ba686a534d34024b121b2b8dacfa376922368f0109036d31de0f92a17aa524",
+      "registeredAt": "2026-09-15T18:46:34.210Z"
     }
   }
 }

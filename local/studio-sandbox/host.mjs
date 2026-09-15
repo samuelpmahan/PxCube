@@ -6,7 +6,7 @@ const $ = id => document.getElementById(id), frames = new Map();
 const storageRoot = `pxcube.studio.v1:${config.id}`;
 const drawerPreferenceKey = `${storageRoot}:controls-collapsed`;
 let owner, selected, current;
-const surfaces = config.mode === 'upload' ? [['live','Paint / photo · live Parts']] : [['shopping','Shopping shelf · 50 discs'],['live','Edit a disc · live Parts']];
+const surfaces = config.mode === 'upload' ? [['live','Paint / photo · live Parts']] : config.mode === 'your-shelf' ? [['shopping','Your collection · browse and bag'],['upload','Add / import disc · live Parts'],['live','Inspect Parts · live']] : [['shopping','Shopping shelf · 50 discs'],['live','Edit a disc · live Parts']];
 const pretty = value => JSON.stringify(value, (_key,item)=>typeof item === 'function' ? '[Calculation function — inspect in owning DevTools]' : item, 2);
 function stop(error) { $('status').textContent = `Stopped: ${error.message ?? error}`; $('status').className='error'; }
 function guarded(fn) { return (...args)=>{try { return fn(...args); } catch(error) {stop(error);} }; }
