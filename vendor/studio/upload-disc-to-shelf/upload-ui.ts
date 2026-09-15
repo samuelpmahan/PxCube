@@ -39,13 +39,11 @@ function chooseSeed(row: SeedOption) {
   input('seed').value = row.address; input('mold-search').value = seedLabel(row); closeSeedChoices(); suggestPlastics(); preview();
   reviewIndex = experience.seedOptions().findIndex(option => option.address === row.address); showReview();
 }
-function seedChoices(preferred = input('seed').value) {
-  availableSeeds = eligibleSeeds();
-  const selected = availableSeeds.find(row => row.address === preferred) ?? availableSeeds[0];
-  if (!selected) throw Error('No demo molds have supported plastic choices.');
-  input('seed').value = selected.address; input('mold-search').value = seedLabel(selected); closeSeedChoices();
-}
-seedChoices(defaults.mold);
+// Start with an honest empty composer. The mold input is the first decision;
+// no catalog item or plastic should be implied before the user chooses one.
+availableSeeds = eligibleSeeds();
+input('mold-search').value = '';
+input('seed').value = '';
 const overrides = document.createElement('details');
 overrides.innerHTML = '<summary>Flight numbers · this disc only</summary><p>Unchecked fields inherit from the mold. Check to specialize; checked + blank means unknown.</p>' + flightFields.map(field => `<label><span><input id="own-${field}" type="checkbox"> Own ${field}</span><input id="disc-${field}" aria-label="Disc ${field}" type="number" step="any" disabled></label>`).join('');
 $('flight').after(overrides);
@@ -54,7 +52,16 @@ function draft(): Draft { return { mold: input('seed').value, nickname: input('n
   ...Object.fromEntries(flightFields.filter(field => input(`own-${field}`).checked).map(field => [field, input(`disc-${field}`).value === '' ? null : Number(input(`disc-${field}`).value)])) }; }
 function preview() {
  try {
-  const material = draft(), resolved = experience.resolve(material);
+  const material = draft();
+  if (!material.mold) {
+   $('flight').textContent = '';
+   $('depiction-name').textContent = '';
+   $('preview').replaceChildren();
+   input('plastic').disabled = true;
+   input('save').disabled = true;
+   return;
+  }
+  const resolved = experience.resolve(material);
   $('flight').textContent = `FLIGHT  ${flightFields.map(field => resolved[field] ?? '?').join(' / ')}`;
   for (const field of flightFields) input(`disc-${field}`).placeholder = String(experience.seedAt(material.mold)[field] ?? 'Unknown');
   $('depiction-name').textContent = depiction.name.replaceAll('-', ' ');
@@ -70,20 +77,33 @@ function preview() {
 }
 $('composer').addEventListener('input', event => { if (event.target !== $('depiction-choice')) preview(); });
 function suggestPlastics() {
+  if (!input('seed').value) {
+   input('plastic').replaceChildren(new Option('Choose a mold first', ''));
+   input('plastic').value = '';
+   input('plastic').disabled = true;
+   input('save').disabled = true;
+   ($('plastic-source') as HTMLAnchorElement).hidden = true;
+   return;
+  }
   const seed = experience.seedAt(input('seed').value);
   const guide = plasticGuides[seed.manufacturer] ?? { values: [], source: '' };
   const preferred = input('plastic').value;
   const unavailable = guide.values.length === 0;
   input('plastic').replaceChildren(...['', ...guide.values].map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value || (unavailable ? `Plastics not loaded for ${seed.manufacturer}` : 'Choose plastic'); return option; }));
   input('plastic').value = guide.values.includes(preferred) ? preferred : '';
-  input('plastic').disabled = unavailable; input('save').disabled = unavailable;
+  input('plastic').disabled = unavailable;
+  updateSaveState();
   const link = $('plastic-source') as HTMLAnchorElement; link.href = guide.source; link.textContent = `${seed.manufacturer} plastic guide`; link.hidden = !guide.source;
 }
+function updateSaveState() {
+ input('save').disabled = photoBusy || input('plastic').disabled || !input('seed').value || !input('plastic').value;
+}
+['change', 'input'].forEach(event => input('plastic').addEventListener(event, updateSaveState));
 input('mold-search').addEventListener('focus', () => renderSeedChoices(''));
 input('mold-search').addEventListener('input', () => {
   input('seed').value = '';
   const exact = availableSeeds.find(row => [row.seed.name, seedLabel(row)].some(value => value.toLocaleLowerCase() === input('mold-search').value.trim().toLocaleLowerCase()));
-  if (exact) chooseSeed(exact); else renderSeedChoices();
+  if (exact) chooseSeed(exact); else { suggestPlastics(); renderSeedChoices(); preview(); }
 });
 input('mold-search').addEventListener('keydown', event => {
   if (event.key === 'Escape') { closeSeedChoices(); return; }
@@ -113,7 +133,7 @@ $('photo').addEventListener('change', async () => {
     photo = { kind: 'photo', name: file.name, src: canvas.toDataURL('image/webp', .86) }; depiction = photo;
     $('status').textContent = 'Photo prepared locally. The original file is unchanged.'; preview();
   } catch (error) { $('status').textContent = String(error); }
-  finally { photoBusy = false; input('save').disabled = input('plastic').disabled; input('shuffle').disabled = false; }
+  finally { photoBusy = false; updateSaveState(); input('shuffle').disabled = false; }
 });
 $('composer').addEventListener('submit', async event => {
   event.preventDefault(); if (photoBusy || input('save').disabled) return;
@@ -127,10 +147,12 @@ $('composer').addEventListener('submit', async event => {
     painting = await experience.selectPainting(random); depiction = painting; photo = null;
     input('customize-label').checked = false; input('paint-label').value = ''; resetPaintSeed(); preview();
   } catch (error) { $('status').textContent = `Not saved: ${String(error)}`; }
-  finally { input('save').disabled = input('plastic').disabled; }
+  finally { updateSaveState(); }
 });
 input('Color1').value = defaults.Color1; input('Color2').value = defaults.Color2; resetPaintSeed(); suggestPlastics(); preview();
-let reviewIndex = experience.seedOptions().findIndex(row => row.address === input('seed').value);
+// The review carousel may begin at the first catalog row, but it must not
+// select that row in the compose form.
+let reviewIndex = 0;
 const reviewFields = ['manufacturer', 'mold', 'speed', 'glide', 'turn', 'fade'];
 function showReview() {
   const options = experience.seedOptions(), { seed } = options[reviewIndex];
@@ -150,7 +172,12 @@ async function review(verdict: 'confirmed' | 'corrected') {
   try {
     const correction = { manufacturer: input('review-manufacturer').value.trim(), name: input('review-mold').value.trim(), ...Object.fromEntries(flightFields.map(field => [field, input(`review-${field}`).value === '' ? null : Number(input(`review-${field}`).value)])) };
     const address = await experience.reviewSeed(oldAddress, verdict, correction);
-    seedChoices(input('seed').value === oldAddress ? address : input('seed').value); suggestPlastics(); preview();
+    availableSeeds = eligibleSeeds();
+    if (input('seed').value === oldAddress) {
+      const selected = availableSeeds.find(option => option.address === address);
+      if (selected) { input('seed').value = selected.address; input('mold-search').value = seedLabel(selected); closeSeedChoices(); }
+    }
+    suggestPlastics(); preview();
     $('review-status').textContent = `${verdict === 'confirmed' ? 'Confirmed' : 'Corrected'} ${correction.name}. ${reviewIndex === seeds.length - 1 ? 'Pass complete; back to the first seed.' : 'Next mold.'}`;
     reviewIndex = (reviewIndex + 1) % experience.seedOptions().length; showReview();
   } catch (error) { $('review-status').textContent = String(error); }

@@ -31,13 +31,15 @@ try{
   assert.equal(await page.locator('#thing').evaluate(f=>f.contentWindow.drawerIdentityWitness===f.contentDocument.querySelector('#surfaces iframe:not([hidden])').contentWindow),true);
   record(mode,'Studio sandbox controls default to a discoverable collapsed drawer and opening it preserves the owning frame');
   assert.equal((await model()).discs.length,0);assert.equal(await surface().locator('#case-next').count(),0);
-  const moldSearch=surface().locator('#mold-search');assert.equal(await moldSearch.getAttribute('role'),'combobox');
+  const moldSearch=surface().locator('#mold-search');assert.equal(await moldSearch.getAttribute('role'),'combobox');assert.equal(await moldSearch.inputValue(),'');assert.equal(await moldSearch.isEnabled(),true);assert.equal(await surface().locator('#plastic').isEnabled(),false);assert.equal(await surface().locator('#save').isEnabled(),false);
   await moldSearch.fill('flyng squrrel');assert.equal(await surface().locator('#mold-options [role="option"]').first().textContent(),'ABC · Flying Squirrel');await surface().locator('#mold-options [role="option"]').first().click();
   assert.equal(await surface().locator('#plastic').isEnabled(),false);assert.equal(await surface().locator('#plastic option').first().textContent(),'Plastics not loaded for ABC');assert.equal(await surface().locator('#save').isEnabled(),false);
   await moldSearch.fill('buz disc');assert.ok(await surface().locator('#mold-options [role="option"]').count()>0);await surface().locator('#mold-options [role="option"]').first().click();
-  assert.equal(await surface().locator('#plastic option').evaluateAll(options=>options.some(option=>option.textContent==='ESP')),true);
+  assert.equal(await surface().locator('#plastic option').evaluateAll(options=>options.some(option=>option.textContent==='ESP')),true);assert.equal(await surface().locator('#save').isEnabled(),false);
+  await moldSearch.fill('buz');assert.equal(await surface().locator('#plastic option').first().textContent(),'Choose a mold first');assert.equal(await surface().locator('#plastic').isEnabled(),false);assert.equal(await surface().locator('#save').isEnabled(),false);
+  await moldSearch.fill('buz disc');await surface().locator('#mold-options [role="option"]').first().click();
   assert.equal(await surface().locator('#paint-label-controls').isHidden(),true);await surface().locator('#customize-label').check();assert.equal(await surface().locator('#paint-label-controls').isVisible(),true);
-  await surface().locator('#customize-label').uncheck();await surface().locator('#plastic').selectOption('ESP');await surface().locator('#weight').fill('174');await surface().locator('#save').click();
+  await surface().locator('#customize-label').uncheck();await surface().locator('#plastic').selectOption('ESP');assert.equal(await surface().locator('#save').isEnabled(),true);await surface().locator('#weight').fill('174');await surface().locator('#save').click();
   await page.waitForFunction(()=>document.querySelector('#thing').contentWindow.pxCubeExperience.inspect().discs?.length===1);
   const saved=await model();assert.equal(saved.discs[0].own.depiction.kind,'painted');assert.equal(saved.discs[0].own.weight,174);
   assert.equal(await page.locator('#thing').evaluate(f=>{const h=f.contentWindow.pxCubeExperience,p=f.contentDocument.querySelector('#surfaces iframe').contentWindow.pxCubeModel;f.contentWindow.identityWitness=p.pxc;return h.resolve(h.current().name+'.'+p.experience.shelfAddress.slice(3))===p.pxc.get(p.experience.shelfAddress);}),true);
@@ -53,7 +55,7 @@ try{
   assert.equal(await page.locator('#thing').evaluate(f=>f.contentWindow.identityWitness===f.contentDocument.querySelector('#surfaces iframe:not([hidden])').contentWindow.pxCubeModel.pxc),true);
   assert.equal(await page.locator('#thing').evaluate(f=>{try{f.contentWindow.pxCubeExperience.resolve('mock.upload-disc-to-shelf.1.px.shelf.0');return false;}catch{return true;}}),true);
   record(mode,'fresh test iterators preserve the interactive Part identity and reject cross-run addresses');
-  await page.locator('#back').click();await open('explore-shelf');let shopping=await model();assert.equal(shopping.discs.length,50);assert.equal(shopping.modelKind,'shopping prototype objects');
+  if(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded')==='false')await page.locator('#control-drawer-toggle').click();await page.locator('#back').click();await open('explore-shelf');let shopping=await model();assert.equal(shopping.discs.length,50);assert.equal(shopping.modelKind,'shopping prototype objects');
   assert.equal(await host().locator('#sandbox-drawer').isHidden(),true);await openSandboxControls();
   assert.equal(await page.locator('#thing').evaluate(f=>localStorage.getItem('pxcube.studio.v1:upload-disc-to-shelf:controls-collapsed')),'false');
   assert.equal(await page.locator('#thing').evaluate(f=>localStorage.getItem('pxcube.studio.v1:explore-shelf:controls-collapsed')),'false');
@@ -76,12 +78,12 @@ try{
   for(let i=0;i<4;i++) {await surface().locator('#case-next').click();await page.waitForFunction(i=>document.querySelector('#thing').contentWindow.pxCubeExperience.inspect().case?.state.next===i+1,i);}
   const shelfTest=await model();assert.equal(shelfTest.case.state.failed,false);assert.equal(shelfTest.bags.length,1);assert.ok(shelfTest.case.records.every(r=>r.value.passed));
   record(mode,'live Shelf Case previews, keeps and bags the exact physical copy; shopping stays independent');
-  await page.locator('#back').click();await open('upload-disc-to-shelf');assert.deepEqual((await model()).discs,saved.discs);
+  if(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded')==='false')await page.locator('#control-drawer-toggle').click();await page.locator('#back').click();await open('upload-disc-to-shelf');assert.deepEqual((await model()).discs,saved.discs);
   assert.equal(await page.locator('#thing').evaluate(f=>f.contentWindow.identityWitness===f.contentDocument.querySelector('#surfaces iframe:not([hidden])').contentWindow.pxCubeModel.pxc),true);
   await page.reload();await open('upload-disc-to-shelf');assert.deepEqual((await model()).discs,saved.discs);
   await host().locator('#session').selectOption('mock.upload-disc-to-shelf.1');assert.equal(await host().locator('.retained:not([hidden])').count(),1);assert.deepEqual((await model()).case,test.case);
   record(mode,'Back preserves owning contexts; reload verifies saved compositions and retains test observations without re-executing');
-  await page.locator('#back').click();await open('explore-shelf');assert.deepEqual((await model()).ui.bags,shopping.ui.bags);
+  if(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded')==='false')await page.locator('#control-drawer-toggle').click();await page.locator('#back').click();await open('explore-shelf');assert.deepEqual((await model()).ui.bags,shopping.ui.bags);
   await host().locator('#surface').selectOption('live');await page.waitForFunction(()=>document.querySelector('#thing').contentWindow.pxCubeExperience.inspect().modelKind==='Studio live Parts');assert.equal((await model()).discs.length,3);assert.equal((await model()).bags.length,0);
   await host().locator('#session').selectOption('mock.explore-shelf.2');assert.deepEqual((await model()).case,shelfTest.case);
   assert.equal(await page.evaluate(()=>localStorage.getItem('discstudio.pxc.shelf.v1')),'real user data untouched');

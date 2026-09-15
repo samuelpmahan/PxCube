@@ -34,7 +34,7 @@ try{
  await frame().locator('#session').selectOption('mock.build-bag');await settle();assert.deepEqual((await inspect()).bags,bag.bags);
  await page.reload();await open('build-bag');assert.deepEqual((await inspect()).bags,bag.bags);
  pass('BuildBag uses exact copies, preserves selection through search, retains order/reload, and isolates numbered tests');
- await page.locator('#back').click();await open('create-graphics');
+ if(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded')==='false')await page.locator('#control-drawer-toggle').click();await page.locator('#back').click();await open('create-graphics');
  const before=await inspect();
  assert.equal(await frame().locator('#preview svg').getAttribute('width'),'1920');
  await frame().locator('#graphic-title').fill('On the course');await frame().locator('#graphic-title').dispatchEvent('change');await settle();
@@ -50,7 +50,7 @@ try{
  await frame().locator('#new-test').click();await settle();await frame().locator('#keep-graphic').click();await settle();
  const offers=await page.evaluate(()=>JSON.parse(localStorage.getItem('pxcube.demo.v1:handoff:creategraphics-to-exportgraphics')));
  assert.equal(offers.length,1);assert.equal(offers[0].hash,capture.hash);
- await page.locator('#back').click();await open('export-graphics');
+ if(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded')==='false')await page.locator('#control-drawer-toggle').click();await page.locator('#back').click();await open('export-graphics');
  assert.equal((await inspect()).captures.length,0);
  await frame().locator('#import-kept').click();await settle();
  const imported=(await inspect()).captures;assert.equal(imported.length,1);assert.deepEqual(imported[0].value,capture);

@@ -68,7 +68,7 @@ try {
     assert.deepEqual(retained.runs['mock.build-bag'], saved);
     assert.equal(retained.runs['mock.build-bag.1'].value.sc.draft.name, 'Only test one');
     await assert.rejects(page.locator('#thing').evaluate(el => el.contentWindow.pxCubeScaffold.resolve('mock.build-bag.1.sc.draft')), /outside/);
-    await page.locator('#back').click(); await page.locator('button.card[data-id="build-bag"]').click();
+    if(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded')==='false')await page.locator('#control-drawer-toggle').click(); await page.locator('#back').click(); await page.locator('button.card[data-id="build-bag"]').click();
     assert.deepEqual(await inspect(), retained);
     await page.reload(); await page.locator('[data-tab="exp"]').click(); await page.locator('button.card[data-id="build-bag"]').click();
     await frame.locator('#status').filter({ hasText: 'Scaffold ready' }).waitFor();

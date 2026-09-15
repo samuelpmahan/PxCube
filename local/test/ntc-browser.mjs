@@ -120,7 +120,7 @@ try {
   await page.screenshot({ path: path.join(evidence, 'mobile.png') });
   pass('the control shell and owner inspector remain usable on a narrow viewport');
   await page.setViewportSize({ width: 1102, height: 1068 });
-  await page.locator('#back').click(); await page.screenshot({ path: path.join(evidence, 'reference-width.png') });
+  if(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded')==='false')await page.locator('#control-drawer-toggle').click(); await page.locator('#back').click(); await page.screenshot({ path: path.join(evidence, 'reference-width.png') });
   await page.route('**/pxcube-run.json', route => route.fulfill({ json: { runId: 'a-newer-build' } }));
   await page.locator('#refresh-build').waitFor({ state: 'visible' });
   assert.equal(await page.evaluate(() => window.pxCubeControl.inspect().artifact), artifact.runId);

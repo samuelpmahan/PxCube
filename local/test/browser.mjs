@@ -28,6 +28,7 @@ try {
   await page.locator('[data-tab="exp"]').click();
   await page.locator('button.card[data-id="hello"]').click();
   await page.frameLocator('#thing').locator('h1').waitFor();
+  if(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded')==='false')await page.locator('#control-drawer-toggle').click();
   await page.locator('#back').click();
   await page.locator('button.card[data-id="mock-smoke"]').click();
   const frame=page.frameLocator('#thing');await frame.locator('article[data-mount="mock.shelf"]').waitFor();
@@ -56,7 +57,7 @@ try {
   assert.equal(model.runs['mock.shelf'].kind,'interactive');assert.equal(Object.hasOwn(model.runs['mock.shelf'],'iteration'),false);
   assert.equal(model.runs['mock.shelf.1'].kind,'test');assert.equal(model.runs['mock.shelf.1'].iteration,1);
   assert.deepEqual(await page.locator('#thing').evaluate(element=>element.contentWindow.pxCubeSmoke.checks),[true,true,true]);
-  await page.locator('#back').click();await page.locator('button.card[data-id="mock-smoke"]').click();
+  if(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded')==='false')await page.locator('#control-drawer-toggle').click();await page.locator('#back').click();await page.locator('button.card[data-id="mock-smoke"]').click();
   await frame.locator('article[data-mount="mock.shelf.2"]').waitFor();
   const resumed=await page.locator('#thing').evaluate(element=>element.contentWindow.pxCubeMocks.inspect());assert.deepEqual(resumed,model);
   await page.reload();await page.locator('[data-tab="exp"]').click();await page.locator('button.card[data-id="mock-smoke"]').click();
