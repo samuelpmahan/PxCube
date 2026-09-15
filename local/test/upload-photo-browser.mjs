@@ -83,8 +83,23 @@ try {
   assert.equal(await surface.locator('[data-zoom-delta]').count(), 8);
   const stageBox = await stage.boundingBox();
   const centerBefore = await surface.locator('#crop-center-x').inputValue();
-  await stage.dragTo(stage, { sourcePosition: { x: stageBox.width / 2, y: stageBox.height / 2 }, targetPosition: { x: stageBox.width / 2 + 25, y: stageBox.height / 2 + 15 } });
+  const centerYBefore = await surface.locator('#crop-center-y').inputValue();
+  // Auto-fit may put the disc off-centre in a letterboxed photo. Start inside
+  // the visible aperture rather than assuming the physical disc is centred.
+  const centerX = Number(centerBefore), centerY = Number(centerYBefore);
+  const candidates = [
+    { x: stageBox.width * centerX, y: stageBox.height * centerY },
+    { x: stageBox.width * centerX, y: stageBox.height / 2 },
+  ];
+  for (const point of candidates) {
+    await page.mouse.move(stageBox.x + point.x, stageBox.y + point.y);
+    await page.mouse.down();
+    await page.mouse.move(stageBox.x + point.x + 25, stageBox.y + point.y + 15);
+    await page.mouse.up();
+    if (await surface.locator('#crop-center-x').inputValue() !== centerBefore) break;
+  }
   assert.notEqual(await surface.locator('#crop-center-x').inputValue(), centerBefore);
+  assert.notEqual(await surface.locator('#crop-center-y').inputValue(), centerYBefore);
   await page.screenshot({ path: path.join(evidence, 'mobile-auto-crop.png') });
 
   await surface.locator('#crop-apply').click();
