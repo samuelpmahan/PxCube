@@ -9,9 +9,10 @@ export async function buildDemo() {
   const config = await loadManifest(process.cwd());
   buildStudio({ ...config, studio: { mode: config.demo.mode } });
   const root = path.dirname(fileURLToPath(import.meta.url));
-  for (const file of ['index.html','app.mjs','model.mjs','graphics.mjs','archive-storage.mjs','style.css']) {
+  for (const file of ['index.html','app.mjs','model.mjs','graphics.mjs','compositions.mjs','competition.mjs','competition-ui.mjs','archive-storage.mjs','style.css']) {
     fs.copyFileSync(path.join(root,file), path.join('dist',file));
   }
+  fs.cpSync(path.join(root,'assets'), 'dist/assets', {recursive:true});
   const vendor = path.resolve('../../vendor/studio-renderer');
   const source = JSON.parse(fs.readFileSync(path.join(vendor,'SOURCE.json')));
   for (const [file,hash] of Object.entries(source.files)) {

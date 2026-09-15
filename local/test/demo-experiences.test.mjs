@@ -90,3 +90,74 @@ test('search excludes nicknames and preserves mold / plastic / descending weight
   assert.ok(constrained.rows.length>0);
   assert.ok(constrained.rows.every(row=>(row.disc.speed??row.seed.speed)>=7&&(row.disc.speed??row.seed.speed)<=8));
 });
+
+test('nine card studies retain source Parts and reach export as the exact chosen graphic',async()=>{
+  const storage=memory(),demo=await openDemo(storage),source=structuredClone(demo.experience.shelf());
+  const studies=await demo.studyCards();
+  assert.equal(studies.length,9);
+  assert.equal(new Set(studies.map(item=>item.graphic.svg)).size,9);
+  const target=await openDemo(memory());
+  for(const {study,graphic,address} of studies){
+    assert.doesNotMatch(graphic.svg,/SPEED|GLIDE|TURN|FADE/);
+    assert.doesNotMatch(graphic.svg,/Add image/,'every graphic uses a supported renderer input');
+    assert.doesNotMatch(graphic.svg,/data-node="maker"/,'the mold is the sole headline');
+    assert.doesNotMatch(graphic.svg,/(?:width|height)="-/,'thin rules retain valid dimensions');
+    const card=demo.pxc.get(address).composition.inputs.card.value;
+    assert.deepEqual(card.warnings,[]);
+    assert.equal(card.nodes.find(node=>node.id==='plastic').size,card.nodes.find(node=>node.id==='weight').size);
+    const rendered=await demo.render(source[0].address,{...demo.context.design,study:study.id});
+    const kept=await demo.capture(rendered,'mock.create-graphics');
+    await target.importCapture(kept.capture);
+    const imported=target.value(target.context.graphics.at(-1));
+    assert.equal(imported.graphic.svg,rendered.graphic.svg);
+    const independent=await target.render(target.context.selectedDisc,{...target.context.design,study:study.id});
+    assert.equal(independent.graphic.svg,rendered.graphic.svg);
+  }
+  assert.deepEqual(demo.experience.shelf(),source);
+  const restored=await openDemo(storage);
+  assert.equal(restored.context.graphics.length,9);
+});
+
+test('creator queues one Competition image at a time: turns, points, size, accent, exact export',async()=>{
+  const storage=memory(),demo=await openDemo(storage),source=structuredClone(demo.experience.shelf());
+  const selection=[source[0].address,source[3].address,source[4].address];
+  await demo.startCompetition(selection);
+  assert.equal(demo.context.graphics.length,0,'starting a lineup does not invent or queue images');
+  const original=demo.value(demo.context.competitionAddress),first=await demo.renderCompetition();
+  assert.equal(first.graphic.cardCount,3);
+  assert.deepEqual(first.graphic.warnings,[]);
+  assert.match(first.graphic.svg,/UP NOW/);
+  assert.doesNotMatch(first.graphic.svg,/data-node="maker"|SPEED|GLIDE|TURN|FADE/);
+  const scene=demo.value(first.sceneAddress),sizes=scene.cards.map(c=>c.width);
+  assert.ok(sizes[0]>sizes[1],'the current turn is larger');
+  assert.equal(scene.cards[0].entry.score,0);
+  const queued1=await demo.captureCompetition(first,'mock.create-graphics');
+  assert.equal(demo.context.graphics.length,1);
+  await demo.editCompetition({kind:'points',id:original.entries[0].id,points:3});
+  await demo.editCompetition({kind:'turn',id:original.entries[1].id});
+  await demo.editCompetition({kind:'style',id:original.entries[1].id,style:{scale:1.3,accent:'#ff44aa'}});
+  const second=await demo.renderCompetition(),secondScene=demo.value(second.sceneAddress);
+  assert.equal(secondScene.cards[0].entry.score,3);
+  assert.ok(secondScene.cards[1].width>secondScene.cards[0].width);
+  assert.match(second.graphic.svg,/#ff44aa/);
+  assert.notEqual(second.graphic.svg,first.graphic.svg);
+  assert.equal(demo.context.graphics.length,1,'live changes do not automatically queue images');
+  const queued2=await demo.captureCompetition(second,'mock.create-graphics');
+  assert.deepEqual(demo.value(queued1.address),queued1.capture);
+  const target=await openDemo(memory());
+  for(const queued of [queued1,queued2])await target.importCapture(queued.capture);
+  assert.deepEqual(target.context.graphics.map(a=>target.value(a).graphic.svg),[first.graphic.svg,second.graphic.svg]);
+  const restored=await openDemo(storage);
+  assert.deepEqual(restored.context.graphics.map(a=>restored.value(a)),[queued1.capture,queued2.capture]);
+  assert.equal((await restored.renderCompetition()).graphic.svg,second.graphic.svg);
+  assert.deepEqual(demo.experience.shelf(),source);
+  await assert.rejects(demo.editCompetition({kind:'points',id:original.entries[0].id,points:NaN}),/points/);
+  assert.equal(demo.context.graphics.length,2);
+  await demo.editCompetition({kind:'equal'});
+  const equal=demo.value((await demo.renderCompetition()).sceneAddress).cards.map(c=>c.width);
+  assert.equal(new Set(equal).size,1);
+  const repeat1=await demo.captureCompetition(second,'mock.create-graphics');
+  const repeat2=await demo.captureCompetition(second,'mock.create-graphics');
+  await target.importCapture(repeat1.capture);await target.importCapture(repeat2.capture);
+  assert.equal(target.context.graphics.length,4,'the creator may deliberately queue the same image twice');
+});
