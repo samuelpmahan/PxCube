@@ -25,6 +25,7 @@ const defaults = initialDraft();
 type SeedOption = ReturnType<typeof experience.seedOptions>[number];
 const seedLabel = ({ seed }: SeedOption) => `${seed.manufacturer} · ${seed.name}`;
 let availableSeeds: SeedOption[] = [], visibleSeeds: SeedOption[] = [], activeSeed = -1;
+let selectionSerial = 0, autoNickname = '', nicknameDirty = false;
 function eligibleSeeds() { return experience.seedOptions(); }
 function closeSeedChoices() {
   $('mold-options').hidden = true; input('mold-search').setAttribute('aria-expanded', 'false'); input('mold-search').removeAttribute('aria-activedescendant'); activeSeed = -1;
@@ -37,8 +38,14 @@ function renderSeedChoices(query = input('mold-search').value) {
   }));
   $('mold-options').hidden = visibleSeeds.length === 0; input('mold-search').setAttribute('aria-expanded', String(visibleSeeds.length > 0)); activeSeed = -1;
 }
-function chooseSeed(row: SeedOption) {
-  input('seed').value = row.address; input('mold-search').value = seedLabel(row); closeSeedChoices(); suggestPlastics(); preview();
+async function chooseSeed(row: SeedOption) {
+  const token = ++selectionSerial;
+  const currentNickname = input('nickname').value.trim();
+  if (!nicknameDirty && (!currentNickname || currentNickname === autoNickname)) { input('nickname').value = row.seed.name; autoNickname = row.seed.name; nicknameDirty = false; }
+  input('seed').value = row.address; input('mold-search').value = seedLabel(row); closeSeedChoices(); suggestPlastics();
+  const nextPainting = await experience.selectPainting(random);
+  if (token !== selectionSerial) return;
+  painting = nextPainting; depiction = nextPainting; resetPaintSeed(); preview();
   reviewIndex = experience.seedOptions().findIndex(option => option.address === row.address); showReview();
 }
 // Start with an honest empty composer. The mold input is the first decision;
@@ -101,11 +108,14 @@ function updateSaveState() {
  input('save').disabled = photoBusy || input('plastic').disabled || !input('seed').value || !input('plastic').value;
 }
 ['change', 'input'].forEach(event => input('plastic').addEventListener(event, updateSaveState));
+input('nickname').addEventListener('input', () => { nicknameDirty = input('nickname').value !== autoNickname; });
 input('mold-search').addEventListener('focus', () => renderSeedChoices(''));
 input('mold-search').addEventListener('input', () => {
+  selectionSerial++;
   input('seed').value = '';
-  const exact = availableSeeds.find(row => [row.seed.name, seedLabel(row)].some(value => value.toLocaleLowerCase() === input('mold-search').value.trim().toLocaleLowerCase()));
-  if (exact) chooseSeed(exact); else { suggestPlastics(); renderSeedChoices(); preview(); }
+  // Typing is exploratory even when it happens to equal a catalog label;
+  // commitment only occurs through an option click or keyboard Enter.
+  suggestPlastics(); renderSeedChoices(); preview();
 });
 input('mold-search').addEventListener('keydown', event => {
   if (event.key === 'Escape') { closeSeedChoices(); return; }
@@ -144,7 +154,7 @@ $('composer').addEventListener('submit', async event => {
     const material = draft();
     const address = await experience.save(material, depiction, { recipe: recipe(material), photo });
     onSaved(address); $('status').textContent = `Saved and read back: ${address}. Add another when you’re ready.`;
-    input('nickname').value = ''; input('photo').value = '';
+    input('nickname').value = ''; autoNickname = ''; nicknameDirty = false; input('photo').value = '';
     for (const field of flightFields) { input(`own-${field}`).checked = false; input(`disc-${field}`).value = ''; input(`disc-${field}`).disabled = true; }
     painting = await experience.selectPainting(random); depiction = painting; photo = null;
     input('customize-label').checked = false; input('paint-label').value = ''; resetPaintSeed(); preview();

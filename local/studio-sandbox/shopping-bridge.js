@@ -7,7 +7,7 @@ if(savedShopping){
  Object.assign(ui,saved.ui);Object.assign(setting,saved.setting);
  el('fs-size').value=String(setting.size);
  const lastBag=ui.bags.at(-1);
- if(lastBag){el('fs-created-bag').textContent=`${lastBag.name} · ${lastBag.discIds.length} fairways. Restored in this sandbox.`;el('fs-created-bag').hidden=false;}
+ if(lastBag){el('fs-created-bag').textContent=`${lastBag.name} · ${lastBag.discIds.length} discs. Restored in this sandbox.`;el('fs-created-bag').hidden=false;}
 }
 const shoppingBridge={
  modelKind:'shopping prototype objects',ui,setting,discs,

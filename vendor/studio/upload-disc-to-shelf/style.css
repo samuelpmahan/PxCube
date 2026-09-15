@@ -22,3 +22,12 @@
 .sandbox-case li { margin:10px 0; }
 .sandbox-case button { margin:4px; }
 .sandbox-case textarea { width:100%; font:inherit; color:inherit; background:#fafbf8; border:1px solid #ced8ce; border-radius:9px; padding:12px; }
+
+/* On narrow screens, introduce the decision before showing its result. */
+@media(max-width:700px){
+  #composer{display:contents}
+  .workspace>#composer>.section-title{grid-column:1;order:1}
+  .workspace>#composer>.mold-step{grid-column:1;order:2}
+  .workspace>.preview-panel{grid-column:1;grid-row:auto;order:3}
+  .workspace>#composer>.form-details{grid-column:1;order:4}
+}

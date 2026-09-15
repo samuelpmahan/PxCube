@@ -28,7 +28,7 @@ test('save retains both depiction sources, switch/Keep chooses one, and restore 
   assert.equal(art.composition.inputs.seed, restored.pxc.get(current.disc.mold));
 });
 
-test('only a live recipe label rebinds when an explicitly corrected mold is chosen', async () => {
+test('label-free recipes stay stable while fixed labels ignore corrected mold facts', async () => {
   const app = createExperience(() => {}), draft = initialDraft();
   const live = await app.save(draft, await app.selectPainting(() => 0), { recipe: liveRecipe });
   const fixed = await app.save(draft, await app.selectPainting(() => 0), { recipe: fixedRecipe });
@@ -40,7 +40,7 @@ test('only a live recipe label rebinds when an explicitly corrected mold is chos
   const fixedCandidate = await app.updateDepiction(fixed, { mold: corrected });
   await app.keepDisc(live, liveCandidate); await app.keepDisc(fixed, fixedCandidate);
   const after = new Map(app.shelf().map(row => [row.address, row.art]));
-  assert.notEqual(after.get(liveCandidate), beforeLive, 'null label derives from the explicitly rebound mold');
+  assert.equal(after.get(liveCandidate), beforeLive, 'null label stays label-free when mold facts change');
   assert.equal(after.get(fixedCandidate), beforeFixed, 'fixed recipe label does not change with mold facts');
 });
 

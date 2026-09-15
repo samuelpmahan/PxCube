@@ -16,11 +16,13 @@
 #fairway-study .fs-filter{display:flex;align-items:center;gap:8px;font-size:12px;padding:9px 7px;margin:7px 0;border:1px solid var(--edge);border-radius:8px;background:var(--panel);cursor:pointer}#fairway-study .fs-filter:has(:checked){background:var(--tint);border-color:var(--accent)}#fairway-study .fs-filter input{width:17px;height:17px;flex:0 0 17px;padding:0;margin:0;accent-color:var(--accent)}#fairway-study .fs-active-bounds{font-size:12px;color:var(--ink);margin:0 0 12px}#fairway-study .fs-slot .fs-outside{margin-top:5px;color:var(--ink);font-weight:600}#fairway-study .fs-inspector .fs-filter-note{grid-column:1/-1;background:var(--tint);padding:8px;border-radius:6px}
 @media(max-width:600px){#fairway-study .fs-nickname,#fairway-study .fs-filter-note{grid-column:1/-1}}
 @media(max-width:600px){#fairway-study .fs-inspector:has(.fs-filter-note) .fs-big-art{grid-row:3/6}}
+#fairway-study .fs-manufacturer-entry{min-width:0;padding:24px 13px 20px;border:1px solid var(--edge);border-radius:10px;background:var(--panel);text-align:left;display:flex;flex-direction:column;gap:6px}#fairway-study .fs-manufacturer-entry:hover,#fairway-study .fs-manufacturer-entry:focus-visible{border-color:var(--accent);background:var(--tint)}
+#fairway-study .fs-filter span{min-width:0;flex:1}#fairway-study .fs-filter select{width:100%;padding:7px 8px}#fairway-study .fs-bag-workspace{border-top:1px solid var(--edge);margin-top:18px;padding-top:12px;font-size:12px}#fairway-study .fs-bag-workspace p{color:var(--muted);margin:5px 0 9px}#fairway-study .fs-bag-workspace label{display:block;color:var(--muted);margin:6px 0 3px}#fairway-study .fs-bag-workspace button{margin-top:7px}
 </style>
 <div id="fairway-study" aria-label="Browse owned molds and build a bag">
   <div class="fs-head"><div class="fs-brand">discstudio <span style="font-weight:400">/ your shelf</span></div><button type="button" id="fs-open-bag">Bag draft · <span id="fs-bag-count">0</span></button></div>
-  <div class="fs-controls"><label>Fairway slots <select id="fs-size"><option value="3">3 discs</option><option value="4" selected>4 discs</option></select></label><small>Open a mold. Pick one of your discs.</small></div>
-  <div class="fs-layout"><aside class="fs-context" id="fs-context" aria-label="Find context"></aside><div class="fs-center"><div class="fs-available"><span id="fs-results" aria-live="polite"></span><span>Open a mold</span></div><div class="fs-shelf" id="fs-shelf" aria-label="Owned fairway molds"></div><div class="fs-legend">One entry per mold. Open it to choose a copy. ✓ means in your bag draft.</div><div class="fs-tray"><div class="fs-tray-head"><strong id="fs-shortlist-count">Bag draft</strong><span>Stays put while you look</span></div><div class="fs-lineup" id="fs-lineup"></div><div class="fs-review"><span id="fs-message" role="status" aria-live="polite">Pick a disc, then add it here.</span><button id="fs-review" type="button" disabled>Review bag</button></div></div></div><aside class="fs-inspector" id="fs-inspector" aria-label="Specimen inspector"></aside></div>
+  <div class="fs-controls"><label>Bag slots <select id="fs-size"><option value="3">3 discs</option><option value="4" selected>4 discs</option></select></label><small>Browse retained discs. Open a mold to choose a copy.</small></div>
+  <div class="fs-layout"><aside class="fs-context" id="fs-context" aria-label="Find context"></aside><div class="fs-center"><div class="fs-available"><span id="fs-results" aria-live="polite"></span><span>Open a mold</span></div><div class="fs-shelf" id="fs-shelf" aria-label="Owned mold manufacturers"></div><div class="fs-legend">Browse manufacturers, then open a mold to choose a retained copy. ✓ means in your bag draft.</div><div class="fs-tray"><div class="fs-tray-head"><strong id="fs-shortlist-count">Bag draft</strong><span>Stays put while you look</span></div><div class="fs-lineup" id="fs-lineup"></div><div class="fs-review"><span id="fs-message" role="status" aria-live="polite">Pick a disc, then add it here.</span><button id="fs-review" type="button" disabled>Review bag</button></div></div></div><aside class="fs-inspector" id="fs-inspector" aria-label="Specimen inspector"></aside></div>
   <p id="fs-created-bag" role="status" hidden></p>
   <dialog id="fs-checkout" class="fs-checkout" aria-labelledby="fs-checkout-title"><div id="fs-create-bag"><div class="fs-checkout-heading"><div><p class="fs-kicker">Your bag</p><h2 id="fs-checkout-title">Ready for the round?</h2></div><button type="button" id="fs-close-checkout">Keep browsing</button></div><div id="fs-checkout-items"></div><label for="fs-bag-name">Bag name</label><input id="fs-bag-name" value="Next round" maxlength="60" required><div class="fs-checkout-actions"><small>Demo bag · kept in this open study.</small><button type="button" id="fs-confirm-bag">Create demo bag</button></div></div></dialog>
   <p class="fs-foot">Illustrative collection. Bag creation in this demo stays in this open study.</p>
@@ -65,7 +67,7 @@ function estimate({ counts, rates }) {
 }
 
 const setting={method:'filter',size:4,queryLength:8,keyRate:.2,dense:true};
-const ui={query:'',speed:true,weight:true,selected:null,expanded:null,shortlist:[],bags:[],message:'Open a mold, then pick a disc.',reviewed:false};
+const ui={query:'',speedMin:null,speedMax:null,weightMin:null,weightMax:null,manufacturer:'',stability:'',plastic:'',discType:'',selected:null,expanded:null,shortlist:[],bags:[],currentBagId:null,message:'Open a mold, then pick a disc.',reviewed:false};
 const names=['Minty','Riverbed','Old gold','Peachy','Headwind','Low line','Woodland','Late sun','Bluebird','Sidekick'];
 // Explicit mold/plastic pairs; specimen weights, artwork and nicknames are fixtures.
 const molds=[
@@ -82,6 +84,10 @@ const molds=[
 ];
 const colors=['#97cbb0','#f4b37d','#dac458','#a599c8','#799da9','#db8799','#acd087','#849aac','#d1c09c','#8db9c4'];
 const discs=Array.from({length:50},(_,i)=>{const base=molds[i%10],copy=Math.floor(i/10);return {...base,id:i,nickname:copy?`${names[i%10]} ${copy+1}`:names[i%10],plastic:base.plastics[copy%base.plastics.length],weight:[168,170,172,174,175][copy],art:art[i%3],color:colors[(i+copy)%10]};});
+const storageKey='discstudio.accepted-shelf.bags.v1';
+try { const saved=JSON.parse(localStorage.getItem(storageKey)||'null'); if(saved&&Array.isArray(saved.bags)){ui.bags=saved.bags.filter(b=>b&&Array.isArray(b.discIds));ui.currentBagId=saved.currentBagId??null;} } catch {}
+const restoredBag=ui.bags.find(b=>b.id===ui.currentBagId);if(restoredBag)ui.shortlist=restoredBag.discIds.filter(id=>Number.isInteger(id)&&id>=0&&id<discs.length);
+function persistBags(){try{localStorage.setItem(storageKey,JSON.stringify({prototype:'accepted-shelf-local-state',bags:ui.bags,currentBagId:ui.currentBagId}));}catch{}}
 const neighbors=[...discs].sort((a,b)=>a.manufacturer.localeCompare(b.manufacturer,'en')||a.mold.localeCompare(b.mold,'en'));
 const moldKey=d=>JSON.stringify([d.manufacturer,d.mold]);
 const copyOrder=(a,b)=>a.plastic.localeCompare(b.plastic,'en',{sensitivity:'base'})||b.weight-a.weight;
@@ -100,48 +106,72 @@ function paint(d,cls=''){return `<img class="${cls}" src="${d.art}" alt="Paintin
 function flight(d){return `<div class="fs-flights">${['speed','glide','turn','fade'].map(f=>`<span><strong>${d[f]}</strong><small>${f}</small></span>`).join('')}</div>`;}
 function exclusion(d){
  const reasons=[];
- if(ui.speed&&(!Number.isFinite(d.speed)||d.speed<7||d.speed>8))reasons.push(`Speed ${d.speed??'unknown'} · outside 7–8`);
- if(ui.weight&&(!Number.isFinite(d.weight)||d.weight<170||d.weight>175))reasons.push(`${d.weight??'unknown'} g · outside 170–175 g`);
+ if(ui.speedMin!==null&&(!Number.isFinite(d.speed)||d.speed<ui.speedMin||d.speed>ui.speedMax))reasons.push(`Speed ${d.speed??'unknown'} · outside selected speeds`);
+ if(ui.weightMin!==null&&(!Number.isFinite(d.weight)||d.weight<ui.weightMin||d.weight>ui.weightMax))reasons.push(`${d.weight??'unknown'} g · outside selected weights`);
+ if(ui.manufacturer&&d.manufacturer!==ui.manufacturer)reasons.push('Outside the manufacturer filter');
+ if(ui.plastic&&d.plastic!==ui.plastic)reasons.push('Outside the plastic filter');
+ if(ui.stability&&flightBias(d)!==ui.stability)reasons.push('Outside the Stability filter');
+ if(ui.discType&&discType(d)!==ui.discType)reasons.push('Outside the DiscType filter');
  const tokens=ui.query.toLowerCase().replace(/[·•,]/g,' ').trim().split(/\s+/).filter(Boolean),text=[d.manufacturer,d.mold,d.plastic,d.weight].join(' ').toLowerCase();
  if(!tokens.every(q=>text.includes(q)))reasons.push('Outside the text search');
  return reasons;
 }
+function flightBias(d){const total=Number(d.turn)+Number(d.fade);return total>=1?'Overstable':total<=-1?'Understable':'Stable/Neutral';}
+function discType(d){const speed=Number(d.speed);return speed<=3?'Putter':speed<=5?'Midrange':speed<=9?'Fairway':'Distance';}
 function filtered(){return neighbors.filter(d=>exclusion(d).length===0);}
 function context(){
- const titles={search:['Find your fairways','Your collection','Try “Innova TeeBird Star” or “Escape Lucid”.'],filter:['Find your fairways','Your collection','Open a mold to see your matching copies.'],reuse:['Find your fairways','Your collection','Open a mold to see your matching copies.']};
+ const titles={search:['Browse your shelf','Your collection','Search retained discs and open a mold to choose a copy.'],filter:['Browse your shelf','Your collection','Filters show only facts retained for these discs.'],reuse:['Browse your shelf','Your collection','Reuse a saved lineup, or browse retained discs.']};
  const [title,sub,note]=titles[setting.method];
- el('fs-context').innerHTML=`<p class="fs-kicker">${sub}</p><h3>${title}</h3>`+(setting.method==='reuse'?'<button id="fs-use-last" type="button">Use last woodland lineup</button>':'')+`<label class="fs-filter"><input id="fs-speed" type="checkbox" ${ui.speed?'checked':''}>Speed 7–8</label><label class="fs-filter"><input id="fs-weight" type="checkbox" ${ui.weight?'checked':''}>Weight 170–175 g</label><input id="fs-query" type="search" aria-label="Search manufacturer, mold, plastic or weight" placeholder="Manufacturer, mold, plastic…" value="${escape(ui.query)}"><p>${note}</p><button id="fs-clear-query" type="button">Show all 50</button>`;
+ const manufacturers=[...new Set(neighbors.map(d=>d.manufacturer))].sort((a,b)=>a.localeCompare(b));
+ const plastics=[...new Set(neighbors.map(d=>d.plastic))].sort((a,b)=>a.localeCompare(b));
+ const speeds=[...new Set(neighbors.map(d=>d.speed).filter(Number.isFinite))].sort((a,b)=>a-b),weights=[...new Set(neighbors.map(d=>d.weight).filter(Number.isFinite))].sort((a,b)=>a-b),types=[...new Set(neighbors.map(d=>discType(d)))].sort();
+ const ranges=values=>values.slice(0,-1).map((v,i)=>({value:`${v}-${values[i+1]}`,label:`${v}–${values[i+1]}`}));
+ const option=(value,label,selected)=>`<option value="${escape(value)}" ${selected?'selected':''}>${escape(label)}</option>`;
+ const rangeOptions=(values,min,max,suffix='')=>ranges(values).map(r=>option(r.value,r.label+suffix,min===Number(r.value.split('-')[0])&&max===Number(r.value.split('-')[1]))).join('');
+ el('fs-context').innerHTML=`<p class="fs-kicker">${sub}</p><h3>${title}</h3>`+(ui.manufacturer?`<button id="fs-back-manufacturers" type="button">← All manufacturers</button>`:'')+(setting.method==='reuse'?'<button id="fs-use-last" type="button">Use last lineup</button>':'')+`<label class="fs-filter"><span>Speed range</span><select id="fs-speed-range" aria-label="Speed range"><option value="">All speeds</option>${rangeOptions(speeds,ui.speedMin,ui.speedMax)}</select></label><label class="fs-filter"><span>Weight range</span><select id="fs-weight-range" aria-label="Weight range"><option value="">All weights</option>${rangeOptions(weights,ui.weightMin,ui.weightMax,' g')}</select></label><label class="fs-filter"><span>Stability <small>(tendency from Turn + Fade)</small></span><select id="fs-stability" aria-label="Stability"><option value="">All tendencies</option>${['Understable','Stable/Neutral','Overstable'].map(v=>option(v,v,ui.stability===v)).join('')}</select></label><label class="fs-filter"><span>DiscType <small>(derived from speed)</small></span><select id="fs-disc-type" aria-label="DiscType"><option value="">All types</option>${types.map(v=>option(v,v,ui.discType===v)).join('')}</select></label><label class="fs-filter"><span>Plastic</span><select id="fs-plastic" aria-label="Plastic"><option value="">All plastics</option>${plastics.map(v=>option(v,v,ui.plastic===v)).join('')}</select></label><label class="fs-filter"><span>Manufacturer</span><select id="fs-manufacturer" aria-label="Manufacturer"><option value="">All manufacturers</option>${manufacturers.map(v=>option(v,v,ui.manufacturer===v)).join('')}</select></label><input id="fs-query" type="search" aria-label="Search manufacturer, mold, plastic or weight" placeholder="Manufacturer, mold, plastic…" value="${escape(ui.query)}"><p>${note}</p><button id="fs-clear-query" type="button">Clear filters</button>`;
  el('fs-query').oninput=e=>{ui.query=e.target.value;renderShelf();};
- el('fs-clear-query').onclick=()=>{ui.query='';ui.speed=false;ui.weight=false;context();renderShelf();};
- el('fs-speed').onchange=e=>{ui.speed=e.target.checked;renderShelf();};
- el('fs-weight').onchange=e=>{ui.weight=e.target.checked;renderShelf();};
+ el('fs-clear-query').onclick=()=>{ui.query='';ui.speedMin=ui.speedMax=ui.weightMin=ui.weightMax=null;ui.manufacturer=ui.plastic=ui.stability=ui.discType='';ui.expanded=null;render();};
+ el('fs-speed-range').onchange=e=>{const v=e.target.value;if(v){[ui.speedMin,ui.speedMax]=v.split('-').map(Number);}else ui.speedMin=ui.speedMax=null;renderShelf();};
+ el('fs-weight-range').onchange=e=>{const v=e.target.value;if(v){[ui.weightMin,ui.weightMax]=v.split('-').map(Number);}else ui.weightMin=ui.weightMax=null;renderShelf();};
+ el('fs-stability').onchange=e=>{ui.stability=e.target.value;renderShelf();};el('fs-disc-type').onchange=e=>{ui.discType=e.target.value;renderShelf();};el('fs-plastic').onchange=e=>{ui.plastic=e.target.value;renderShelf();};
+ el('fs-manufacturer').onchange=e=>{ui.manufacturer=e.target.value;ui.expanded=null;render();};
+ if(el('fs-back-manufacturers'))el('fs-back-manufacturers').onclick=()=>{ui.manufacturer='';ui.expanded=null;render();};
  if(el('fs-use-last'))el('fs-use-last').onclick=()=>{ui.shortlist=[0,11,22,33].slice(0,setting.size);ui.selected=ui.shortlist.at(-1);ui.reviewed=false;ui.message='Previous lineup copied locally. Inspect a slot to replace it.';renderShelf();};
 }
 function specimenCard(d){return `<button type="button" class="fs-disc ${ui.shortlist.includes(d.id)?'is-held':''}" data-disc="${d.id}" aria-pressed="${ui.selected===d.id}" aria-label="Inspect ${escape(identity(d))}">${paint(d)}<span class="fs-specimen-plastic">${escape(d.plastic)}</span><span>${d.weight} g</span><span class="fs-pick-hint">${ui.selected===d.id?'In your hand':ui.shortlist.includes(d.id)?'✓ In bag':'Pick up'}</span></button>`;}
 function moldCard(group){const held=group.owned.filter(d=>ui.shortlist.includes(d.id)).length;return `<button type="button" class="fs-mold-entry" data-mold="${escape(group.key)}" aria-expanded="${ui.expanded===group.key}" aria-controls="fs-copies-${group.id}" aria-label="${escape(group.manufacturer+' '+group.mold)}, ${group.matching.length} matching of ${group.owned.length} owned"><span class="fs-mold-stack" aria-hidden="true">${group.matching.slice(0,3).map(d=>paint(d)).join('')}</span><span class="fs-mold-title">${escape(group.mold)}</span><span class="fs-mold-maker">${escape(group.manufacturer)}</span><span class="fs-owned">${group.matching.length===group.owned.length?`${group.owned.length} owned`:`${group.matching.length} of ${group.owned.length} match`}</span><span class="fs-open-hint">${ui.expanded===group.key?'Close copies ↑':'Open copies ↓'}${held?` · ${held} in bag`:''}</span></button>`;}
+function manufacturerCard(group){const molds=[...new Set(group.map(d=>d.mold))].sort((a,b)=>a.localeCompare(b));return `<button type="button" class="fs-manufacturer-entry" data-manufacturer="${escape(group[0].manufacturer)}" aria-label="${escape(group[0].manufacturer)}, ${molds.length} molds, ${group.length} discs"><span class="fs-mold-title">${escape(group[0].manufacturer)}</span><span class="fs-owned">${molds.length} molds · ${group.length} discs</span><span class="fs-open-hint">Browse molds →</span></button>`;}
 function copiesPanel(group){return `<section id="fs-copies-${group.id}" class="fs-copies" aria-label="Your ${escape(group.manufacturer+' '+group.mold)} copies"><div class="fs-copy-heading"><div><h3>Your ${escape(group.mold)} discs</h3><p>${group.matching.length} matching of ${group.owned.length} owned${group.owned.length>group.matching.length?` · ${group.owned.length-group.matching.length} outside filters`:''}</p></div><button type="button" id="fs-close-copies">Close</button></div><div class="fs-copy-grid">${group.matching.map(specimenCard).join('')}</div></section>`;}
 function restoreMoldFocus(key){[...root.querySelectorAll('[data-mold]')].find(b=>b.dataset.mold===key)?.focus({preventScroll:true});}
 function renderShelf(){
  const rows=filtered(),groups=groupShelf(neighbors,rows),columns=Number(getComputedStyle(root).getPropertyValue('--mold-columns'))||3;
- el('fs-results').textContent=`${groups.length} molds · ${rows.length} of 50 discs`;
+ const manufacturerGroups=[...new Map(rows.reduce((map,d)=>{if(!map.has(d.manufacturer))map.set(d.manufacturer,[]);map.get(d.manufacturer).push(d);return map;},new Map())).values()];
+ el('fs-results').textContent=ui.manufacturer?`${groups.length} molds · ${rows.length} of ${neighbors.length} discs`:`${manufacturerGroups.length} manufacturers · ${rows.length} of ${neighbors.length} discs`;
  let bounds=el('fs-active-bounds');if(!bounds){bounds=document.createElement('p');bounds.id='fs-active-bounds';bounds.className='fs-active-bounds';el('fs-shelf').before(bounds);}
- bounds.textContent=[ui.speed?'Speed 7–8':'All speeds',ui.weight?'170–175 g':'All weights',ui.query.trim()?`Matching “${ui.query.trim()}”`:''].filter(Boolean).join(' · ');
- let html='';for(let i=0;i<groups.length;i++){html+=moldCard(groups[i]);if((i+1)%columns===0||i===groups.length-1){const rowStart=Math.floor(i/columns)*columns,expanded=groups.slice(rowStart,i+1).find(g=>g.key===ui.expanded);if(expanded)html+=copiesPanel(expanded);}}
+ bounds.textContent=[ui.speedMin!==null?`Speed ${ui.speedMin}–${ui.speedMax}`:'All speeds',ui.weightMin!==null?`${ui.weightMin}–${ui.weightMax} g`:'All weights',ui.manufacturer||'',ui.stability?`Stability: ${ui.stability}`:'',ui.discType?`DiscType: ${ui.discType}`:'',ui.plastic||'',ui.query.trim()?`Matching “${ui.query.trim()}”`:''].filter(Boolean).join(' · ');
+ let html='';
+ if(!ui.manufacturer){for(const group of manufacturerGroups)html+=manufacturerCard(group);}
+ else for(let i=0;i<groups.length;i++){html+=moldCard(groups[i]);if((i+1)%columns===0||i===groups.length-1){const rowStart=Math.floor(i/columns)*columns,expanded=groups.slice(rowStart,i+1).find(g=>g.key===ui.expanded);if(expanded)html+=copiesPanel(expanded);}}
  el('fs-shelf').innerHTML=html||'<p class="fs-none">No matching molds. Your shortlist is still below.</p>';
  root.querySelectorAll('[data-mold]').forEach(b=>b.onclick=()=>{const key=b.dataset.mold;ui.expanded=ui.expanded===key?null:key;renderShelf();restoreMoldFocus(key);});
+ root.querySelectorAll('[data-manufacturer]').forEach(b=>b.onclick=()=>{ui.manufacturer=b.dataset.manufacturer;ui.expanded=null;render();});
  if(el('fs-close-copies'))el('fs-close-copies').onclick=()=>{const key=ui.expanded;ui.expanded=null;renderShelf();restoreMoldFocus(key);};
  root.querySelectorAll('[data-disc]').forEach(b=>b.onclick=()=>{const id=Number(b.dataset.disc);ui.selected=id;renderShelf();root.querySelector(`[data-disc="${id}"]`)?.focus({preventScroll:true});});
  inspector();lineup();
 }
 function inspector(){
- if(ui.selected===null){el('fs-inspector').innerHTML='<p class="fs-kicker">In your hand</p><p class="fs-empty-inspector">Open a mold.<br>Pick your copy.</p>';return;}
+ if(ui.selected===null){el('fs-inspector').innerHTML='<p class="fs-kicker">In your hand</p><p class="fs-empty-inspector">Open a mold.<br>Pick your copy.</p>'+bagWorkspace();wireBagWorkspace();return;}
  const d=discs[ui.selected],held=ui.shortlist.includes(d.id);
  const outside=exclusion(d);
- el('fs-inspector').innerHTML=`<p class="fs-kicker">In your hand</p>${outside.length?`<p class="fs-filter-note">${escape(outside.join('; '))}. Retained selection.</p>`:''}${paint(d,'fs-big-art')}<h3>${escape(d.mold)}</h3><p class="fs-info">${escape(d.manufacturer)}<br>${escape(d.plastic)} · ${d.weight} g</p>${flight(d)}<p class="fs-nickname">Nickname · ${escape(d.nickname)}</p><button id="fs-hold" type="button" ${!held&&ui.shortlist.length>=setting.size?'disabled':''}>${held?'Remove from bag':'+ Add to bag'}</button>`;
+ el('fs-inspector').innerHTML=`<p class="fs-kicker">In your hand</p>${outside.length?`<p class="fs-filter-note">${escape(outside.join('; '))}. Retained selection.</p>`:''}${paint(d,'fs-big-art')}<h3>${escape(d.mold)}</h3><p class="fs-info">${escape(d.manufacturer)}<br>${escape(d.plastic)} · ${d.weight} g</p>${flight(d)}<p class="fs-nickname">Nickname · ${escape(d.nickname)}</p><button id="fs-hold" type="button" ${!held&&ui.shortlist.length>=setting.size?'disabled':''}>${held?'Remove from bag':'+ Add to bag'}</button>${bagWorkspace()}`;
  el('fs-hold').onclick=()=>{ui.shortlist=held?ui.shortlist.filter(id=>id!==d.id):[...ui.shortlist,d.id];ui.reviewed=false;ui.message=held?'Removed from this bag draft.':`${d.mold} added to your bag draft.`;renderShelf();};
+ wireBagWorkspace();
 }
+function bagWorkspace(){const bag=ui.bags.find(b=>b.id===ui.currentBagId);return `<section class="fs-bag-workspace" aria-label="Current bag workspace"><strong>${bag?'Current bag':'Bag draft'}</strong><p>${bag?`${escape(bag.name)} · ${bag.discIds.length} discs saved`:'Unsaved local prototype selection.'}</p>${bag?`<label for="fs-inline-bag-name">Rename bag</label><input id="fs-inline-bag-name" maxlength="80" value="${escape(bag.name)}"><button id="fs-save-bag-name" type="button">Save name</button>`:ui.shortlist.length?'<label for="fs-inline-create-name">Create bag</label><input id="fs-inline-create-name" maxlength="80" value="Next round"><button id="fs-inline-create" type="button">Create bag</button>':''}</section>`;}
+function createBagNamed(name){name=name.trim();if(!name||name.length>80)return false;const bag=Object.freeze({id:crypto.randomUUID(),name,discIds:Object.freeze([...ui.shortlist])});ui.bags.push(bag);ui.currentBagId=bag.id;persistBags();ui.message=`${name} created here.`;return true;}
+function wireBagWorkspace(){const input=el('fs-inline-bag-name'),save=el('fs-save-bag-name');if(input&&save){save.onclick=()=>{const bag=ui.bags.find(b=>b.id===ui.currentBagId),name=input.value.trim();if(!bag||!name||name.length>80){input.setCustomValidity('Use a name from 1 to 80 characters.');input.reportValidity();return;}input.setCustomValidity('');ui.bags=ui.bags.map(item=>item.id===bag.id?{...item,name}:item);persistBags();ui.message=`${name} renamed.`;renderShelf();};input.oninput=()=>input.setCustomValidity('');input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save.click();}if(e.key==='Escape'){input.value=ui.bags.find(b=>b.id===ui.currentBagId)?.name||'';input.blur();}};}const create=el('fs-inline-create'),name=el('fs-inline-create-name');if(create&&name){create.onclick=()=>{if(!createBagNamed(name.value)){name.setCustomValidity('Use a name from 1 to 80 characters.');name.reportValidity();return;}renderShelf();};}}
 function lineup(){
- el('fs-shortlist-count').textContent=`Bag draft · ${ui.shortlist.length} / ${setting.size}`;
+ const current=ui.bags.find(b=>b.id===ui.currentBagId);el('fs-shortlist-count').textContent=`${current?current.name:'Bag draft'} · ${ui.shortlist.length} / ${setting.size}`;
  el('fs-bag-count').textContent=String(ui.shortlist.length);
  el('fs-lineup').style.gridTemplateColumns=`repeat(${setting.size},minmax(0,1fr))`;
  if(root.clientWidth<600)el('fs-lineup').style.gridTemplateColumns='repeat(2,minmax(0,1fr))';
@@ -157,15 +187,15 @@ function openCheckout(){
 el('fs-close-checkout').onclick=()=>el('fs-checkout').close();
 el('fs-confirm-bag').onclick=()=>{
  const name=el('fs-bag-name').value.trim();if(!name){el('fs-bag-name').setCustomValidity('Give this bag a name.');el('fs-bag-name').reportValidity();return;}
- const bag=Object.freeze({id:ui.bags.length+1,name,discIds:Object.freeze([...ui.shortlist])});ui.bags.push(bag);
- el('fs-checkout').close();el('fs-created-bag').textContent=`${bag.name} · ${bag.discIds.length} fairways. Created in this demo; your shelf is unchanged.`;el('fs-created-bag').hidden=false;
- ui.message=`${bag.name} created here. You can keep browsing.`;lineup();
+ if(!createBagNamed(name))return; const bag=ui.bags.find(b=>b.id===ui.currentBagId);
+ el('fs-checkout').close();el('fs-created-bag').textContent=`${bag.name} · ${bag.discIds.length} discs. Created in this demo; your shelf is unchanged.`;el('fs-created-bag').hidden=false;
+ ui.message=`${bag.name} created here. You can keep browsing.`;renderShelf();
 };
 el('fs-bag-name').oninput=()=>el('fs-bag-name').setCustomValidity('');
 el('fs-bag-name').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();el('fs-confirm-bag').click();}};
 function render(){root.querySelectorAll('[data-method]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.method===setting.method)));context();renderShelf();}
 root.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{setting.method=b.dataset.method;render();});
-el('fs-size').onchange=e=>{setting.size=Number(e.target.value);ui.shortlist=ui.shortlist.slice(0,setting.size);ui.message='Fairway slots changed; retained choices stay.';render();};
+el('fs-size').onchange=e=>{setting.size=Number(e.target.value);ui.shortlist=ui.shortlist.slice(0,setting.size);ui.message='Bag slots changed; retained choices stay.';render();};
 el('fs-review').onclick=openCheckout;
 el('fs-open-bag').onclick=()=>{el('fs-lineup').scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});el('fs-review').focus({preventScroll:true});};
 render();
