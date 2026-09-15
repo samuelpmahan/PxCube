@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Studio Experience</title><link rel="stylesheet" href="./style.css"></head>
+<body><header class="sandbox"><div><strong id="title">Studio</strong><small id="mount"></small></div><div class="controls"><label>Sandbox <select id="session"></select></label><button id="new-test">New test run</button><button id="inspect">Inspect Parts</button></div></header>
+<p id="status" role="status">Opening the owning store…</p><main id="app"></main>
+<dialog id="inspection"><header><h2>Parts in this sandbox</h2><button id="close">Close</button></header><form id="lookup"><label>Mounted address <input id="address"></label><button>Resolve</button></form><pre id="resolved"></pre><pre id="values"></pre></dialog>
+<script type="module" src="./app.mjs"></script></body></html>

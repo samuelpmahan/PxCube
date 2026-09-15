@@ -164,6 +164,74 @@
       "sourceHash": "0da522c12ee65e944bbca359431a426914d980f94afb2bfed1ba06c9534d6384",
       "sharedToolsHash": "48fde89c3215ebff569ae92ed65859a3c6b85dffbeaf1ff87173bc1e4d15dcde",
       "registeredAt": "2026-09-14T18:17:49.061Z"
+    },
+    "create-graphics": {
+      "track": "exp",
+      "manifest": {
+        "title": "CreateGraphics",
+        "description": "Make a DiscSpotlight with real specimen Parts and the shared card renderer.",
+        "entry": "index.html",
+        "mounts": [
+          "studio"
+        ],
+        "build": "node build.mjs",
+        "outDir": "dist",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-downloads",
+          "allow-modals",
+          "allow-forms"
+        ],
+        "demo": {
+          "mode": "create"
+        },
+        "track": "exp",
+        "id": "create-graphics",
+        "version": "0.1.0",
+        "manifestSource": {
+          "path": ".tidy/manifest.json",
+          "type": "pxcube-create-graphics",
+          "digest": "fa6efd186f0e880e64bfff9e5c78e954a2ffca5261502fdcbadb3c5286a04040"
+        }
+      },
+      "sourceHash": "724cff666c80c73508791bd0bb68a366b8dd5e6b484f81f1d0cf6ce90f43c977",
+      "sharedToolsHash": "94abd58aa43b87a7a8bf9d6d7f47c1e24eed0b562d1f067a6ac62b2772a6a307",
+      "registeredAt": "2026-09-15T02:21:41.766Z"
+    },
+    "export-graphics": {
+      "track": "exp",
+      "manifest": {
+        "title": "ExportGraphics",
+        "description": "Inspect a captured graphic and download the exact SVG or PNG.",
+        "entry": "index.html",
+        "mounts": [
+          "studio"
+        ],
+        "build": "node build.mjs",
+        "outDir": "dist",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-downloads",
+          "allow-modals",
+          "allow-forms"
+        ],
+        "demo": {
+          "mode": "export"
+        },
+        "track": "exp",
+        "id": "export-graphics",
+        "version": "0.1.0",
+        "manifestSource": {
+          "path": ".tidy/manifest.json",
+          "type": "pxcube-export-graphics",
+          "digest": "204f7fc23ba0375467ef5831173e43295e7b76bdd8a806f32a01c90016f765ad"
+        }
+      },
+      "sourceHash": "cb04949cc80e55b6fe26ad4457f4b171b35db47483dccde43a65e7b273a0a983",
+      "sharedToolsHash": "94abd58aa43b87a7a8bf9d6d7f47c1e24eed0b562d1f067a6ac62b2772a6a307",
+      "registeredAt": "2026-09-15T02:21:46.965Z"
     }
   }
 }

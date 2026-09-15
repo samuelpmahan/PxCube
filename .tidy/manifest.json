@@ -35,51 +35,91 @@
       "clean": "clean",
       "experiments": "exp",
       "tests": [
-        "node --test local/test/scaffold.test.mjs",
-        "node local/test/scaffold-browser.mjs"
+        "node --test local/test/demo-experiences.test.mjs",
+        "node local/test/demo-experiences-browser.mjs"
       ],
       "experience": {
         "title": "BuildBag",
-        "description": "Choose the discs you want to carry. A sandbox frame ready for the bag-building Experience.",
+        "description": "Choose exact copies, arrange them, and keep a named bag.",
         "entry": "index.html",
         "mounts": [
-          "shelf"
+          "studio"
         ],
         "build": "node build.mjs",
         "outDir": "dist",
         "sandbox": [
           "allow-scripts",
           "allow-same-origin",
+          "allow-downloads",
+          "allow-modals",
           "allow-forms"
         ],
-        "scaffold": {
-          "template": "sandbox@1",
-          "world": "shelf",
-          "inputs": [
-            {
-              "address": "px.discs",
-              "label": "Your shelf",
-              "for": "The available discs. Selection of physical copies is the first behavior to connect."
-            }
-          ],
-          "outputs": [
-            {
-              "address": "px.bags",
-              "label": "Your saved bag",
-              "for": "An ordered collection of selected physical discs. This output has not been implemented."
-            }
-          ],
-          "steps": [
-            "Choose discs",
-            "Arrange your bag",
-            "Create bag"
-          ],
-          "draft": {
-            "address": "sc.draft",
-            "field": "name",
-            "label": "Bag name"
-          }
-        }
+        "demo": {
+          "mode": "bag"
+        },
+        "track": "exp"
+      }
+    },
+    "pxcube-create-graphics": {
+      "version": "0.1.0",
+      "root": "experiences/create-graphics",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": [
+        "node --test local/test/demo-experiences.test.mjs",
+        "node local/test/demo-experiences-browser.mjs"
+      ],
+      "experience": {
+        "title": "CreateGraphics",
+        "description": "Make a DiscSpotlight with real specimen Parts and the shared card renderer.",
+        "entry": "index.html",
+        "mounts": [
+          "studio"
+        ],
+        "build": "node build.mjs",
+        "outDir": "dist",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-downloads",
+          "allow-modals",
+          "allow-forms"
+        ],
+        "demo": {
+          "mode": "create"
+        },
+        "track": "exp"
+      }
+    },
+    "pxcube-export-graphics": {
+      "version": "0.1.0",
+      "root": "experiences/export-graphics",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": [
+        "node --test local/test/demo-experiences.test.mjs",
+        "node local/test/demo-experiences-browser.mjs"
+      ],
+      "experience": {
+        "title": "ExportGraphics",
+        "description": "Inspect a captured graphic and download the exact SVG or PNG.",
+        "entry": "index.html",
+        "mounts": [
+          "studio"
+        ],
+        "build": "node build.mjs",
+        "outDir": "dist",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-downloads",
+          "allow-modals",
+          "allow-forms"
+        ],
+        "demo": {
+          "mode": "export"
+        },
+        "track": "exp"
       }
     }
   }
