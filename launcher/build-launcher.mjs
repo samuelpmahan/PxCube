@@ -200,4 +200,7 @@ const html = readFileSync(new URL('./shell.html', import.meta.url), 'utf8')
   .replace('<!-- STATE -->', payload);
 writeFileSync(join(DIST, 'index.html'), html);
 for (const file of ['shell.css', 'shell.mjs']) writeFileSync(join(DIST, file), readFileSync(new URL('./' + file, import.meta.url)));
+// The review checklist component is vendored (vendor/neat/tick-part-checklist.js)
+// so the launcher makes no cross-origin requests and works offline.
+writeFileSync(join(DIST, 'tick-part-checklist.js'), readFileSync(new URL('../vendor/neat/tick-part-checklist.js', import.meta.url)));
 console.log(`launcher: ${shipped.length} shipped, ${failed.length} failed`);
