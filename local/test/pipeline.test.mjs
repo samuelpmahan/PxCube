@@ -82,6 +82,7 @@ test('a dirty subcommit source snapshot invalidates a warm package cache without
     const dirty = await build(repo);
     assert.notEqual(dirty.report.results[0].sourceHash, warm.report.results[0].sourceHash);
     assert.notEqual(dirty.report.sourceSnapshot.packageKeys.hello, warm.report.sourceSnapshot.packageKeys.hello);
+    assert.deepEqual(dirty.report.sourceSnapshot.transport, { kind: 'working-tree', commit: null });
     assert.ok(dirty.report.sourceSnapshot.dirtyFiles.includes('experiences/hello/src/index.html'));
     assert.match(fs.readFileSync(path.join(dirty.site, 'experiences/hello/index.html'), 'utf8'), /dirty subcommit marker/);
     fs.writeFileSync(source, original);

@@ -38,6 +38,12 @@ dirty source edit invalidates the affected package immediately, can be browser
 verified, and is promoted to Git only when the reviewer accepts its coherent
 batch.
 
+Snapshot transport is explicit. Local mode packages/tests the working-tree
+snapshot directly. A cloud agent, GitHub Actions, or Pages needs that same
+snapshot carried through a branch commit; its `transport.kind` is `git-commit`
+instead of `working-tree`. That transport commit makes the bytes available on
+another machine—it is neither acceptance evidence nor a tidy/clean promotion.
+
 Useful commands:
 
 ```sh

@@ -97,6 +97,9 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
     const sourceSnapshot = {
       schemaVersion: 1,
       baseCommit: sourceCommit,
+      transport: process.env.GITHUB_SHA
+        ? { kind: 'git-commit', commit: process.env.GITHUB_SHA }
+        : { kind: 'working-tree', commit: null },
       dirtyFiles: workingTreeChanges(repo) ?? [],
       packageKeys: Object.fromEntries(targets.map(target => [target.id, target.packageKey])),
     };
