@@ -164,10 +164,39 @@ const manifestAccordion = (m) => {
 
 const state = existsSync('ntc-state.json') ? JSON.parse(readFileSync('ntc-state.json', 'utf8')) : { schemaVersion: 1, work: [], types: {}, results: [] };
 const payload = JSON.stringify({ ...state, manifests, packagedIds: shipped.map(m => m.id) }).replaceAll('<', '\\u003c');
+
+// The hypervisor's review surface: every work item in review becomes a tick,
+// its requirements become parts, and the human-inspection requirement becomes
+// a review check linking straight at the experience under review. Ticks persist
+// per artifact (storage-key carries the run id). No submission-id here: the
+// inspection export stays with neat submissions, this is the review surface.
+const reviewTicks = (state.work ?? [])
+  .filter((item) => item.status === 'review')
+  .map((item) => {
+    const expId = item.location?.component?.split('/').at(-1);
+    const href = expId && manifests.some((m) => m.id === expId)
+      ? `./experiences/${expId}/index.html`
+      : './neat.html';
+    return {
+      id: item.id,
+      label: `${item.id} — ${item.outcome ?? item.status}`,
+      parts: (item.requirements ?? []).map((req) => ({
+        id: req.id,
+        label: req.text ?? req.id,
+        ...(req.id === 'review'
+          ? { reviewId: `${item.id}:${req.id}`, action: { href, label: expId ? 'Open the experience' : 'Open the work board' } }
+          : {}),
+      })),
+    };
+  });
+const reviewChecklist = reviewTicks.length
+  ? `<tick-part-checklist data-checklist="${esc(JSON.stringify(reviewTicks))}" storage-key="pxcube-review:${esc(state.runId ?? 'local')}" subject-commit="${esc(state.sourceCommit ?? '')}"></tick-part-checklist>`
+  : '';
 const html = readFileSync(new URL('./shell.html', import.meta.url), 'utf8')
   .replace('<!-- CLEAN -->', shelfFor('clean'))
   .replace('<!-- EXP -->', shelfFor('exp'))
   .replace('<!-- MANIFESTS -->', manifests.map(manifestAccordion).join(''))
+  .replace('<!-- REVIEW-CHECKLIST -->', reviewChecklist)
   .replace('<!-- STATE -->', payload);
 writeFileSync(join(DIST, 'index.html'), html);
 for (const file of ['shell.css', 'shell.mjs']) writeFileSync(join(DIST, file), readFileSync(new URL('./' + file, import.meta.url)));

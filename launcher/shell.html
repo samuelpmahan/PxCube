@@ -50,6 +50,9 @@
     </div>
   </main>
   <dialog id="inspector"><header><div><p class="eyebrow" id="inspector-kind"></p><h2 id="inspector-title"></h2></div><button id="close-inspector" aria-label="Close inspector">Close</button></header><p id="inspector-note"></p><pre id="inspector-value"></pre></dialog>
+  <script src="https://samuelpmahan.github.io/neat/tick-part-checklist.js"></script>
+  <!-- REVIEW-CHECKLIST -->
   <script type="application/json" id="ntc-state"><!-- STATE --></script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});</script>
   <script type="module" src="./shell.mjs"></script>
 </body></html>
