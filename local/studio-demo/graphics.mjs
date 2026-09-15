@@ -23,7 +23,14 @@ export const cardStudies=Object.freeze(spacingStudies.flatMap(spacing=>typeStudi
   id:`${spacing.id}-${type.id}`,name:`${spacing.name} · ${type.name}`,spacing,type,
 }))));
 export const allCardStudies=[...compositionStudies,...cardStudies];
-export const defaultDesign = Object.freeze({layout:currentLayout,study:defaultComposition,preset:'spotlight',orientation:'landscape',frame:'none',placement:'bottom-left',accent:'#a6edda',background:'#162c39',foreground:'#f6f3e9',title:''});
+export const defaultDesign = Object.freeze({layout:currentLayout,study:defaultComposition,preset:'spotlight',orientation:'landscape',frame:'none',placement:'bottom-left',compositionSize:'balanced',compositionScaleNudge:0,compositionOffsetX:0,compositionOffsetY:0,accent:'#a6edda',background:'#162c39',foreground:'#f6f3e9',title:''});
+export const compositionSizeStudies=Object.freeze([
+  {id:'compact',name:'Compact',scale:1.55,note:'Keeps the scene open around the graphic.'},
+  {id:'balanced',name:'Balanced',scale:2.05,note:'Assisted starting point for a clear, useful overlay.'},
+  {id:'full-width',name:'Full width',scale:2.7,note:'Uses the safe canvas width when the composition allows it.'},
+]);
+export const compositionScaleNudges=Object.freeze([-10,-5,-3,-1,0,1,3,5,10]);
+export const compositionOffsetNudges=Object.freeze([-120,-60,-20,0,20,60,120]);
 export function graphicFields({disc, resolved}) {
   const fields = [
     {path:'disc.photo',type:'image',label:'Depiction',value:disc.depiction.src},
@@ -130,8 +137,18 @@ export function moldHeading({definition}) {
 }
 export function canvasScene({card,frame,design}) {
   const anchor=design.placement??'bottom-left';
-  if(!['bottom-left','bottom-right','top-left','top-right'].includes(anchor))throw Error('Choose a known corner.');
-  return composeOverlay({cards:{single:card},frame,layout:{orientation:design.orientation,arrangement:'row',anchor,scale:1,gap:0}});
+  if(!['bottom-left','bottom-center','bottom-right','top-left','top-right'].includes(anchor))throw Error('Choose a known anchor.');
+  const size=compositionSizeStudies.find(item=>item.id===design.compositionSize)??compositionSizeStudies[1];
+  const nudge=Number(design.compositionScaleNudge)||0;
+  const scale=size.scale*(1+nudge/100);
+  const base=composeOverlay({cards:{single:card},frame,layout:{orientation:design.orientation,arrangement:'row',anchor:anchor==='bottom-center'?'bottom-left':anchor,scale,gap:0}});
+  // composeOverlay owns safe-area fitting and corner placement. Center only
+  // the horizontal axis for the lower-third anchor, then apply exact export
+  // pixel nudges as a final reversible geometry transform.
+  const centerShift=anchor==='bottom-center'?(base.safe.x+(base.safe.width-base.bounds.width)/2-base.bounds.x):0;
+  const dx=centerShift+(Number(design.compositionOffsetX)||0),dy=Number(design.compositionOffsetY)||0;
+  const placements=base.placements.map(item=>({...item,x:item.x+dx,y:item.y+dy}));
+  return {...base,placements,bounds:{...base.bounds,x:base.bounds.x+dx,y:base.bounds.y+dy}};
 }
 export const calculations = {
   'fn.studio.reorderSelection':({context,view,from,to})=>reorderBag({bag:createBag({id:'draft',name:context.name||'Draft',selection:context.selection,rows:view.rows}),discId:view.rows.find(row=>row.address===context.selection[from]).disc.id,toIndex:to}).versions.map(v=>v.address),

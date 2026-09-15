@@ -23,7 +23,7 @@ export const compositionStudies=Object.freeze([
   {id:'upright-tag',name:'Upright tag',note:'A compact vertical tag: grouped facts, centered specimen, then the four numbers across its foot.',composition:{
     width:380,height:350,art:{x:115,y:98,w:150,h:150},header:header(22,18,336,{mold:32,meta:21}),numbers:numbers(18,254,344,74,{h:86}),
     surfaces:[panel(0,0,380,350,'background',24),panel(22,90,336,2,'accent',0)]}},
-  {id:'crest',name:'Crest',note:'The disc rises above the card silhouette. A wide pedestal carries the shared header and numbers.',composition:{
+  {id:'crest',name:'Crest',preferredSize:'full-width',note:'The disc rises above the card silhouette. A wide pedestal carries the shared header and numbers.',composition:{
     width:650,height:326,art:{x:240,y:0,w:170,h:170},header:header(22,170,606,{mold:34}),numbers:numbers(18,242,614,74,{h:78}),
     surfaces:[panel(0,150,650,176,'background',18),{shape:'circle',cx:325,cy:85,r:85,fill:'accent'},panel(22,232,606,2,'accent',0)]}},
   {id:'edge-crop',name:'Edge crop',note:'The artwork becomes a close crop along the edge, giving the pattern more presence than the disc outline.',composition:{

@@ -19,7 +19,10 @@ const CACHE_SCHEMA = 'pxcube-package-inputs-v2';
 
 const ignore = new Set(['.git', '.crisp', 'dist', 'node_modules', '.pxcube']);
 const studioApps = new Set(['upload-disc-to-shelf', 'explore-shelf', 'your-shelf', 'build-bag', 'on-course']);
-const demoApps = new Set(['build-bag', 'on-course']);
+// These experiences are thin typed manifests over the shared Studio demo
+// cartridge. Their package keys must move whenever the shared UI/renderer
+// changes, otherwise a cache hit can quietly ship yesterday's screen.
+const demoApps = new Set(['build-bag', 'create-graphics', 'export-graphics', 'on-course']);
 
 function sha(parts) {
   const hash = createHash('sha256');
