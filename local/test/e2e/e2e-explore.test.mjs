@@ -43,7 +43,7 @@ function extractConst(source, name) {
 const html = fs.readFileSync(sitePath(studio, 'accepted-shelf.html'), 'utf8');
 const seedFactory = new Function(
   `${extractConst(html, 'molds')};${extractConst(html, 'names')};${extractConst(html, 'colors')};` +
-  `const art=['a','b','c'];${extractConst(html, 'discs')};return discs;`
+  `const art=['a','b','c'];const discCount=50;${extractConst(html, 'discs')};return discs;`
 );
 const discs = seedFactory();
 assert.equal(discs.length, 50);
