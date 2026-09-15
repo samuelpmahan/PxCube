@@ -1,3 +1,67 @@
+# UploadDiscToShelf photo-first crop verification
+
+final result: passed
+
+Source visual truth:
+`/var/folders/mb/6ckfqq2n1rv3jrlqqvcrj39m0000gn/T/codex-clipboard-f10d57ce-95c8-4902-89a4-9a0fc7927e78.png`
+(1290 × 2796) and
+`/var/folders/mb/6ckfqq2n1rv3jrlqqvcrj39m0000gn/T/codex-clipboard-9895fba1-d994-4fd3-b917-9c898d472304.jpg`
+(1290 × 2796). These are browser-framed product annotations, so they define the
+mobile hierarchy and photo treatment rather than a pixel-identical crop-editor
+layout.
+
+Implementation: `http://127.0.0.1:4340/`, built by crisp and captured in the
+Codex in-app Browser at a 390 × 844 CSS viewport, device scale 1. The Browser
+API returned the implementation screenshots inline and does not expose a local
+file path for those bytes. State: MVP · Servo selected; first the crop dialog
+with a landscape JPEG, then the applied Photo depiction. Both source references
+and both rendered states were opened and visually compared during this pass.
+
+Full-view comparison evidence: the requested order is now manufacturer + mold,
+flight summary, `Edit flight numbers (this disc only)`, prominent `Add photo`,
+then the persistent live preview. The applied photo is circular and edge-to-edge
+without the former mint/orange painting backing. No page-width overflow was
+visible at 390 pixels.
+
+Focused-region evidence: the crop sheet was checked separately at 390 × 844.
+Its circle, left/right, up/down, zoom, width, height, Reset, Cancel, and Use photo
+controls all fit inside the viewport. Cancel returned to the painted Servo and
+kept Photo unavailable; Use photo returned to the Servo preview, selected Photo,
+and enabled later Painting/Photo switching. Console errors and warnings: none.
+
+Findings and iteration:
+
+1. P1 — the provisional implementation exposed stretch but no positioning and
+   exported an unmasked square. Added bounded x/y crop placement, a circular
+   canvas clip, accessible labels, reset/cancel behavior, and mobile dialog
+   styling. Post-fix evidence is the crop and applied-photo browser captures
+   described above. No remaining P0/P1/P2 finding.
+2. P2 — photo rendering inherited the decorative painting padding/background.
+   Added a photo-specific view class that removes that backing in preview,
+   shelf cards, and the held-disc inspector. The applied-photo capture shows the
+   corrected edge-to-edge circle.
+
+Required surfaces:
+
+- Typography: existing system type, weights, and hierarchy are retained; crop
+  labels remain readable and do not collide at phone width.
+- Spacing/layout: the modal has bounded width/height and reachable actions; the
+  top upload control aligns to the form width; no horizontal overflow observed.
+- Colors/tokens: existing paper, forest, muted green, focus orange, radii, and
+  shadow language are reused.
+- Image quality: output is cover-cropped, clipped to a true circle, capped at
+  1024 px, encoded once, and rendered without the painting rim. The original
+  file remains untouched.
+- Copy/content: flight disclosure is `Edit flight numbers (this disc only)`;
+  `Add photo`, `Fit the disc`, `Cancel`, and `Use photo` make the branch explicit.
+
+Primary interactions tested: fuzzy mold selection and nickname autofill; photo
+picker; crop position/stretch adjustment; Cancel preservation; Use photo
+auto-switch; circular no-rim preview. Deterministic geometry tests cover
+portrait, landscape, square, bounded movement, stretch/zoom, and invalid sizes.
+
+---
+
 # NTC shell verification
 
 final result: passed

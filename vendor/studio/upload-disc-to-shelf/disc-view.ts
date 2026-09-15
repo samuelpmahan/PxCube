@@ -5,7 +5,7 @@ export function createDiscView(experience: ReturnType<typeof createExperience>) 
 function discView(material: Draft, image: Depiction, savedArt?: string) {
   const seed = experience.seedAt(material.mold);
   const figure = document.createElement('figure');
-  const art = document.createElement('div'); art.className = 'disc-art'; art.style.background = colorBackground(material);
+  const art = document.createElement('div'); art.className = `disc-art${image.kind === 'photo' ? ' photo-art' : ''}`; if (image.kind !== 'photo') art.style.background = colorBackground(material);
   const img = document.createElement('img'); img.src = savedArt ?? renderDiscPainting({ draft: material, depiction: image }); img.alt = `${image.kind === 'photo' ? 'Photo' : 'Painting'} of ${seed.manufacturer} ${seed.name}`; art.append(img);
   const title = document.createElement('h3'); title.textContent = seed.name;
   const resolved = experience.resolve(material);
