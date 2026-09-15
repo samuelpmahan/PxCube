@@ -27,7 +27,7 @@ test('validates a frozen null-live or trimmed fixed-label recipe and rejects mal
   ]) assert.throws(() => validatePaintRecipe(recipe as PaintRecipe));
 });
 
-test('derives legacy recipe inputs while making its label live by default', () => {
+test('derives legacy recipe inputs without implying a painting label', () => {
   const plain = recipeFromDraft(initialDraft(), { kind: 'painted', name: 'pressed-fern', src: './art/pressed-fern.svg' });
   assert.deepEqual(plain, { ...base, seed: 40 });
   const colored = recipeFromDraft({ ...initialDraft(), colorPainting: true, paintMode: 'halo' }, { kind: 'painted', name: 'contour-basin', src: './art/contour-basin.svg' });
@@ -46,13 +46,25 @@ test('photo passes through exactly and a selected missing or invalid photo refus
   assert.throws(() => renderDepiction({ recipe: base, photo: { ...photo, src: 'javascript:bad' }, choice: 'photo', seed }), /no valid prepared photo/);
 });
 
-test('solid, split and halo palettes differ; seed fact changes affect only a live label', () => {
+test('solid, split and halo palettes differ; labels are optional and bounded', () => {
   const solid = renderDepiction({ recipe: base, photo: null, choice: 'painted', seed });
   const split = renderDepiction({ recipe: { ...base, mode: 'split' }, photo: null, choice: 'painted', seed });
   const halo = renderDepiction({ recipe: { ...base, mode: 'halo' }, photo: null, choice: 'painted', seed });
   assert.notEqual(solid, split); assert.notEqual(split, halo); assert.notEqual(solid, halo);
   const renamed = { ...seed, name: 'Buzzz GT' };
-  assert.notEqual(renderDepiction({ recipe: base, photo: null, choice: 'painted', seed }), renderDepiction({ recipe: base, photo: null, choice: 'painted', seed: renamed }));
+  assert.equal(renderDepiction({ recipe: base, photo: null, choice: 'painted', seed }), renderDepiction({ recipe: base, photo: null, choice: 'painted', seed: renamed }));
+  assert.doesNotMatch(decodeURIComponent(solid), /Discraft|Buzzz/);
+  const labeled = { ...base, label: 'MVP · Servo' };
+  for (const family of FAMILIES) {
+    const unlabeledSvg = decodeURIComponent(renderDepiction({ recipe: { ...base, family }, photo: null, choice: 'painted', seed }));
+    const labeledSvg = decodeURIComponent(renderDepiction({ recipe: { ...labeled, family }, photo: null, choice: 'painted', seed }));
+    assert.doesNotMatch(unlabeledSvg, /Discraft|Buzzz|id="plaque"/);
+    assert.match(labeledSvg, /MVP · Servo/);
+    const labelFont = labeledSvg.match(/<text[^>]*font-size="([0-9.]+)"[^>]*>MVP · Servo/);
+    if (labelFont) assert.ok(Number(labelFont[1]) >= 18, `${family} label font is too small: ${labelFont[1]}`);
+  }
+  const long = decodeURIComponent(renderDepiction({ recipe: { ...base, label: 'A very long custom painting label that should degrade gracefully' }, photo: null, choice: 'painted', seed }));
+  assert.match(long, /A very long/); assert.doesNotMatch(long, /<text[^>]*>A very long custom painting label/);
   const fixed = { ...base, label: 'My ace disc' };
   assert.equal(renderDepiction({ recipe: fixed, photo: null, choice: 'painted', seed }), renderDepiction({ recipe: fixed, photo: null, choice: 'painted', seed: renamed }));
 });

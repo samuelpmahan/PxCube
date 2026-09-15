@@ -119,18 +119,19 @@ function head(text, k) {
 
 /** _label_plate(label, accent, knock): a broadcast name plate, at target 220 only. */
 function labelPlate(label, accent, knock) {
-  const display = head(pyStrip(label), 10);
+  const display = head(pyStrip(label), 24);
   if (!display) return [];
-  const size = 22.0;
+  const count = Array.from(display).length;
+  const size = Math.min(22.0, (300 - 2 * Math.max(count - 1, 0)) / Math.max(count * 0.63, 1));
   const spacing = 2.0;
   const textW = Array.from(display).length * (size * 0.63 + spacing);
-  const width = Math.max(122.0, textW + 46);
+  const width = Math.min(430.0, Math.max(122.0, textW + 46));
   const x = C - width / 2;
   return [
     '<g id="text">',
     `<rect x="${f(x)}" y="402" width="${f(width)}" height="38" rx="7" fill="${accent}"/>`,
     `<rect x="${f(x + 11)}" y="410" width="7" height="22" rx="3.5" fill="${knock}" opacity=".95"/>`,
-    `<text x="${f(C + spacing / 2 + 5)}" y="428" text-anchor="middle" font-family="sans-serif" font-size="22" `
+    `<text x="${f(C + spacing / 2 + 5)}" y="428" text-anchor="middle" font-family="sans-serif" font-size="${f(size)}" `
       + `font-weight="700" letter-spacing="2" fill="${knock}">${escape(display)}</text>`,
     '</g>',
   ];

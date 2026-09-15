@@ -16,7 +16,9 @@ let painting = depiction, photo: Depiction | null = null;
 function resetPaintSeed() { input('paint-seed').value = String(recipeFromDraft(initialDraft(), painting).seed); }
 function recipe(material: Draft) {
   if (!input('paint-seed').value.trim()) throw Error('Enter a painting seed.');
-  return validatePaintRecipe({ ...recipeFromDraft(material, painting), seed: Number(input('paint-seed').value), label: input('customize-label').checked ? input('paint-label').value : null });
+  const selected = experience.seedAt(material.mold);
+  const label = input('customize-label').checked ? (input('paint-label').value.trim() || `${selected.manufacturer} · ${selected.name}`) : null;
+  return validatePaintRecipe({ ...recipeFromDraft(material, painting), seed: Number(input('paint-seed').value), label });
 }
 let photoBusy = false;
 const defaults = initialDraft();

@@ -138,10 +138,12 @@ function renderClassic(family, seed, base, accent, target, label) {
   }
   out.push('</g>');
   if (target === 220) {
-    // Python slices by code point; JS slices by UTF-16 unit, so an astral
-    // character would be cut in half by label.slice(0, 10).
-    const display = escape(Array.from(pyStrip(label)).slice(0, 10).join(''));
-    out.push('<g id="text">', `<text x="256" y="420" text-anchor="middle" font-family="sans-serif" font-size="22" letter-spacing="3" fill="${accent}" opacity=".82">${display}</text>`, '</g>');
+    const rawDisplay = Array.from(pyStrip(label)).slice(0, 24).join('');
+    const display = escape(rawDisplay);
+    if (display) {
+      const fontSize = Math.min(22, (380 - 3 * Math.max(rawDisplay.length - 1, 0)) / Math.max(0.63 * rawDisplay.length, 1));
+      out.push('<g id="text">', `<text x="256" y="420" text-anchor="middle" font-family="sans-serif" font-size="${fontSize.toFixed(1)}" letter-spacing="3" fill="${accent}" opacity=".82">${display}</text>`, '</g>');
+    }
   }
   out.push(`<title>${safe}</title>`, '</svg>');
   return out.join('\n') + '\n';

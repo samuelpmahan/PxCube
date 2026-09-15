@@ -61,6 +61,7 @@ export function renderDepiction({ recipe, photo, choice, seed }: {
   if (choice !== 'painted') throw new Error('Choose the painted or photo depiction.');
   const valid = validatePaintRecipe(recipe);
   if (!seed || typeof seed.manufacturer !== 'string' || !seed.manufacturer.trim() || typeof seed.name !== 'string' || !seed.name.trim()) throw new Error('Live depiction labels require manufacturer and mold facts.');
-  const label = valid.label ?? `${seed.manufacturer.trim()} · ${seed.name.trim()}`;
-  return renderPalettePainting({ ...valid, label });
+  // null is an intentionally label-free painting. Checked compose labels are
+  // materialized by the UI as either custom text or the manufacturer+mold.
+  return renderPalettePainting({ ...valid, label: valid.label ?? '' });
 }

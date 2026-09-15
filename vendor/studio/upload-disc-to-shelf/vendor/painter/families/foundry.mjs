@@ -106,16 +106,18 @@ function labelPlate(label, base, accent, target) {
   if (target !== 220) return [];
   // Python slices by code point, JS by UTF-16 unit; and the plate is measured
   // AFTER .upper(), which can lengthen the string ('straße' -> 'STRASSE').
-  const text = Array.from(pyStrip(label)).slice(0, 10).join('').toUpperCase();
+  const text = Array.from(pyStrip(label)).slice(0, 24).join('').toUpperCase();
   if (!text) return [];
-  const width = 16.0 * Array.from(text).length + 40.0;
+  const count = Array.from(text).length;
+  const fontSize = Math.min(20, (380 - 3 * Math.max(count - 1, 0)) / Math.max(count * 0.63, 1));
+  const width = Math.min(430.0, 16.0 * Array.from(text).length + 40.0);
   const x = 256.0 - width / 2.0;
   return [
     '<g id="text">',
     `<rect x="${fmt1(x)}" y="396" width="${fmt1(width)}" height="36" rx="4"`
     + ` fill="${base}" stroke="${accent}" stroke-width="3" opacity=".96"/>`,
     '<text x="257.5" y="421" text-anchor="middle" font-family="sans-serif"'
-    + ' font-size="20" font-weight="700" letter-spacing="3"'
+    + ` font-size="${fmt1(fontSize)}" font-weight="700" letter-spacing="3"`
     + ` fill="${accent}">${escape(text)}</text>`,
     '</g>',
   ];

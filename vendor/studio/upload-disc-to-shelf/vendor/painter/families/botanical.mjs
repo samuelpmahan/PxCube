@@ -195,14 +195,17 @@ function grain(target, phase, color) {
 
 /** The mount label: a small paper plaque with the disc label and a figure. */
 function plaque(t, label, figure, tilt) {
-  const safe = escape(head(pyStrip(label), 13));
+  const display = head(pyStrip(label), 13);
+  if (!display) return [];
+  const safe = escape(display);
+  const fontSize = Math.min(23, 210 / Math.max(Array.from(display).length, 1));
   return [
     `<g id="plaque" transform="rotate(${n(tilt)} 256 418)">`,
     `<rect x="150" y="386" width="212" height="64" rx="3" fill="${t.paper}"`
       + ` stroke="${t.hair}" stroke-width="1.6" opacity=".95"/>`,
     '<rect x="155" y="391" width="202" height="54" rx="2" fill="none"'
       + ` stroke="${t.hair}" stroke-width=".8" opacity=".6"/>`,
-    '<text x="256" y="420" text-anchor="middle" font-family="serif" font-size="23"'
+    `<text x="256" y="420" text-anchor="middle" font-family="serif" font-size="${fontSize.toFixed(1)}"`
       + ` letter-spacing="1.5" fill="${t.ink}">${safe}</text>`,
     '<text x="256" y="439" text-anchor="middle" font-family="sans-serif" font-size="11"'
       + ` letter-spacing="3" fill="${t.mid}">${escape(figure)}</text>`,
