@@ -10,7 +10,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { hashAppSources } from '../crisp/lib/packager.mjs';
 import { loadManifest } from '../crisp/lib/manifest.mjs';
 import { validateWorkItem } from '../vendor/neat/dist/work-items.js';
-import { resolveTargets } from './affected-targets.mjs';
+import { resolveTargets, workingTreeChanges } from './affected-targets.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const root = path.resolve(here, '..');
@@ -90,6 +90,17 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
     // agree on what can be restored versus what must compile again.
     const targets = await resolveTargets(repo);
     const targetById = new Map(targets.map(target => [target.id, target]));
+    // HEAD is useful provenance, but never the build input. A neat iteration
+    // is allowed to be dirty: the package keys below name the exact current
+    // working-tree bytes that crisp receives.
+    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).stdout?.trim() || null;
+    const sourceSnapshot = {
+      schemaVersion: 1,
+      baseCommit: sourceCommit,
+      dirtyFiles: workingTreeChanges(repo) ?? [],
+      packageKeys: Object.fromEntries(targets.map(target => [target.id, target.packageKey])),
+    };
+    sourceSnapshot.digest = sha(JSON.stringify(sourceSnapshot));
     const packageCache = path.join(state, 'package-cache');
     const results = [];
     for (const id of apps(repo)) {
@@ -124,6 +135,9 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
         }
         if (!['exp', 'clean'].includes(registration.track)) throw Error('Invalid tidy registration track.');
         drift = registration.sourceHash !== sourceHash || registration.sharedToolsHash !== sharedToolsHash;
+        // Inferred entries describe this run, not an authored manifest edit.
+        // Keeping them in memory prevents a build from mutating an input that
+        // participates in the next subcommit package key.
         lineage.types[`pxcube-${id}`] ??= { version: /^\d+\.\d+\.\d+$/.test(manifest.version ?? '') ? manifest.version : '0.0.0', root: `experiences/${id}`, clean: 'clean', experiments: 'exp', tests: [] };
         const target = targetById.get(id);
         const cacheDir = target ? path.join(packageCache, target.packageKey, id) : null;
@@ -167,15 +181,17 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
       const result = results.at(-1);
       write(path.join(assembly, 'experiences', id, 'experience.json'), { ...(manifest ?? {}), id, title: manifest?.title ?? id, track: registration?.track === 'clean' && !drift ? 'clean' : 'exp', registry: { registeredSourceHash: registration?.sourceHash ?? null, currentSourceHash: sourceHash ?? null, changedSinceRegistration: drift }, attempt: { runId, ok: result.ok, error: result.error ?? null, receipt: result.ok ? result.receipt : null } });
     }
-    write(registryPath, registry); write(lineagePath, lineage);
+    write(registryPath, registry);
+    // Fresh scaffolds need an initial authored manifest. Once present, local
+    // packaging never rewrites it: inferred run entries stay in memory.
+    if (!fs.existsSync(lineagePath)) write(lineagePath, lineage);
     const ledger = path.join(run, 'ledger');
     for (const folder of ['.neat', '.tidy']) copyTree(path.join(repo, folder), path.join(ledger, folder));
     const neat = command([path.join(work, 'vendor/neat/dist/cli.js'), 'check', '--root', ledger], ledger);
     const tidy = command([path.join(work, 'vendor/tidy/tidy'), 'check'], ledger);
     fs.writeFileSync(path.join(run, 'neat-check.log'), neat); fs.writeFileSync(path.join(run, 'tidy-check.log'), tidy);
-    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], {cwd: repo,encoding:'utf8'}).stdout?.trim() ?? null;
     write(path.join(assembly, 'ntc-state.json'), {
-      schemaVersion: 1, runId, sourceCommit, sharedToolsHash,
+      schemaVersion: 1, runId, sourceCommit, sourceSnapshot, sharedToolsHash,
       work: fs.readdirSync(path.join(ledger, '.neat/items')).filter(file => file.endsWith('.json')).sort().map(file => read(path.join(ledger, '.neat/items', file))),
       types: lineage.types, results,
     });
@@ -220,7 +236,7 @@ self.addEventListener('fetch', (event) => {
 `;
       fs.writeFileSync(path.join(distDir, 'sw.js'), sw);
     }
-    const report = { schemaVersion: 1, runId, sourceCommit, toolsHash, sharedToolsHash, ledgerHashes: hashes(ledger), results, launcher, neat, tidy };
+    const report = { schemaVersion: 1, runId, sourceCommit, sourceSnapshot, toolsHash, sharedToolsHash, ledgerHashes: hashes(ledger), results, launcher, neat, tidy };
     write(path.join(run, 'report.json'), report);
     copyTree(path.join(assembly, 'dist'), path.join(run, 'site'));
     command([path.join(work, 'vendor/neat/dist/cli.js'), 'html', '--root', ledger, '--out', path.join(run, 'site/neat.html')], ledger);

@@ -137,12 +137,12 @@ jobs:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/pxcube-browser/node_modules/playwright/index.mjs
           NTC_FIXTURE: '1'
         run: node local/test/ntc-browser.mjs
+      - name: same packaging program as local preview
+        run: node local/ci.mjs
       - name: compare and retain a CreateGraphics composition
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/pxcube-browser/node_modules/playwright/index.mjs
         run: node local/test/create-graphics-browser.mjs
-      - name: same packaging program as local preview
-        run: node local/ci.mjs
       - name: E2E the five experiences against MockPxC, no browser
         run: node --test "local/test/e2e/*.test.mjs"
       - uses: actions/upload-artifact@v4

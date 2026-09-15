@@ -15,7 +15,7 @@ import { loadManifest } from '../crisp/lib/manifest.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(here, '..');
-const CACHE_SCHEMA = 'pxcube-package-inputs-v1';
+const CACHE_SCHEMA = 'pxcube-package-inputs-v2';
 
 const ignore = new Set(['.git', '.crisp', 'dist', 'node_modules', '.pxcube']);
 const studioApps = new Set(['upload-disc-to-shelf', 'explore-shelf', 'your-shelf', 'build-bag', 'on-course']);
@@ -67,7 +67,9 @@ function packageInputs(root, id) {
   // crisp's validator/mock facade are package-time inputs for every app.
   const inputs = ['crisp', 'mock-pxc'];
   const raw = rawManifest(root, id);
-  if (raw.tidy) inputs.push('tidy', '.tidy');
+  // `.tidy/pxcube.json` is retained build evidence written by local/run.
+  // Only the authored typed manifest belongs in an immutable package key.
+  if (raw.tidy) inputs.push('tidy', '.tidy/manifest.json');
   if (studioApps.has(id)) {
     inputs.push('local/build-studio.mjs', 'local/studio-sandbox', 'local/mock-mounts.mjs', 'local/experience-mount.mjs', 'local/scenarios.mjs', 'vendor/studio');
   }
@@ -100,11 +102,31 @@ function expandComposition(root, seeds) {
   return all;
 }
 
+function namesFromStatus(output) {
+  const entries = output.split('\0').filter(Boolean);
+  const names = new Set();
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    const code = entry.slice(0, 2);
+    names.add(entry.slice(3));
+    // With porcelain -z a rename/copy has a second, old-path record. Both
+    // sides matter when asking an owner what changed.
+    if ((code.includes('R') || code.includes('C')) && entries[index + 1]) names.add(entries[++index]);
+  }
+  return [...names].filter(Boolean).sort();
+}
+
+export function workingTreeChanges(root = repoRoot) {
+  const result = spawnSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd: root, encoding: 'utf8' });
+  return result.status === 0 ? namesFromStatus(result.stdout) : null;
+}
+
 function changedFiles(root, base, head) {
-  if (!base || !head) return null;
+  const worktree = workingTreeChanges(root);
+  if (!base || !head) return worktree;
   const result = spawnSync('git', ['diff', '--name-only', `${base}...${head}`], { cwd: root, encoding: 'utf8' });
   if (result.status !== 0) return null;
-  return result.stdout.split('\n').map((line) => line.trim()).filter(Boolean);
+  return [...new Set([...result.stdout.split('\n').map((line) => line.trim()).filter(Boolean), ...(worktree ?? [])])].sort();
 }
 
 function affectedFromFiles(root, files) {
@@ -124,7 +146,7 @@ function affectedFromFiles(root, files) {
       for (const id of ids) affect(id, `shared package runtime changed: ${file}`);
       continue;
     }
-    if (/^(tidy|\.tidy)\//.test(file)) {
+    if (/^tidy\//.test(file) || file === '.tidy/manifest.json') {
       for (const id of ids) if (rawManifest(root, id).tidy) affect(id, `typed manifest provider changed: ${file}`);
       continue;
     }

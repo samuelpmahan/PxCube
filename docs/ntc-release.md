@@ -27,6 +27,17 @@ honest rebuild. Local builds use the same keys under `.pxcube/package-cache/`.
 Launcher-only and documentation changes reassemble the Page without invalidating
 Experience packages.
 
+## Subcommit snapshots
+
+`neat` is the iteration lane, not a request to commit early. `local/run.mjs`
+packages the current working-tree bytes, including staged, unstaged, and relevant
+untracked build inputs. Each run records a `sourceSnapshot` with its base commit,
+dirty paths, exact per-Experience package keys, and a digest. `sourceCommit` is
+only ancestry provenance; it is never used as a package-cache key. This means a
+dirty source edit invalidates the affected package immediately, can be browser
+verified, and is promoted to Git only when the reviewer accepts its coherent
+batch.
+
 Useful commands:
 
 ```sh

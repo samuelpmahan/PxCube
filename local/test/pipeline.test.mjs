@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { build, root } from '../run.mjs';
+import { resolveTargets } from '../affected-targets.mjs';
 import { hashSources } from '../../crisp/lib/hasher.mjs';
 const read=file=>JSON.parse(fs.readFileSync(file,'utf8'));
 const write=(file,value)=>fs.writeFileSync(file,JSON.stringify(value));
@@ -54,6 +55,40 @@ test('shared pipeline retains attempts, isolates failed builds, shows drift and 
     assert.equal(read(path.join(repo,'.pxcube/latest.json')).runId,fourth.report.runId);
     for(const file of fs.readdirSync(path.join(repo,'.neat/items'))) { const item=read(path.join(repo,'.neat/items',file));assert.deepEqual(item.acceptanceRefs,[]);assert.deepEqual(item.promotionRefs,[]); }
   } finally {fs.rmSync(repo,{recursive:true,force:true})}
+});
+
+test('a dirty subcommit source snapshot invalidates a warm package cache without a Git commit', async () => {
+  const repo = temp();
+  const git = (...args) => {
+    const result = spawnSync('git', args, { cwd: repo, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  try {
+    for (const name of ['local', 'tidy', 'vendor', 'crisp', 'mock-pxc', 'launcher']) fs.cpSync(path.join(root, name), path.join(repo, name), { recursive: true });
+    fs.mkdirSync(path.join(repo, 'experiences'));
+    fixture('hello', path.join(repo, 'experiences/hello'));
+    git('init', '-q'); git('config', 'user.email', 'test@example.test'); git('config', 'user.name', 'Test');
+    git('add', '.'); git('commit', '-qm', 'base');
+    await build(repo); // creates the retained NTC metadata alongside a warm package cache
+    git('add', '.neat', '.tidy'); git('commit', '-qm', 'retain snapshot');
+    const warm = await build(repo);
+    const source = path.join(repo, 'experiences/hello/src/index.html');
+    const original = fs.readFileSync(source, 'utf8');
+    fs.writeFileSync(source, `${original}\n<!-- dirty subcommit marker -->\n`);
+    const head = git('rev-parse', 'HEAD');
+    const targets = await resolveTargets(repo, { base: head, head });
+    assert.match(targets.find(target => target.id === 'hello').reasons.join('\n'), /experience source changed/);
+    const dirty = await build(repo);
+    assert.notEqual(dirty.report.results[0].sourceHash, warm.report.results[0].sourceHash);
+    assert.notEqual(dirty.report.sourceSnapshot.packageKeys.hello, warm.report.sourceSnapshot.packageKeys.hello);
+    assert.ok(dirty.report.sourceSnapshot.dirtyFiles.includes('experiences/hello/src/index.html'));
+    assert.match(fs.readFileSync(path.join(dirty.site, 'experiences/hello/index.html'), 'utf8'), /dirty subcommit marker/);
+    fs.writeFileSync(source, original);
+    const restored = await build(repo);
+    assert.equal(restored.report.sourceSnapshot.packageKeys.hello, warm.report.sourceSnapshot.packageKeys.hello);
+    assert.doesNotMatch(fs.readFileSync(path.join(restored.site, 'experiences/hello/index.html'), 'utf8'), /dirty subcommit marker/);
+  } finally { fs.rmSync(repo, { recursive: true, force: true }); }
 });
 
 test('vendored original source identities match their recorded commits',()=>{

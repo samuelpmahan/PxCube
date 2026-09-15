@@ -347,7 +347,7 @@ document.addEventListener('keydown', event => {
 });
 $('artifact-id').textContent = state.runId?.split('T')[1]?.replace(/Z-.*/, 'Z') ?? 'not recorded';
 $('artifact-id').title = state.runId ?? '';
-$('source-id').textContent = short(state.sourceCommit);
+$('source-id').textContent = short(state.sourceSnapshot?.digest ?? state.sourceCommit);
 $('experience-count').textContent = manifests.size;
 $('work-summary').textContent = `${state.work.length} work items · ${state.work.filter(item => item.status === 'review').length} in review`;
 $('manifest-summary').textContent = `${manifests.size} Experience manifests`;

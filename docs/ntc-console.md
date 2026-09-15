@@ -10,8 +10,9 @@ The build program supplies a retained `ntc-state.json` to the launcher. It holds
 the actual neat work items, tidy type definitions, package results and measured
 build durations for this artifact. The launcher embeds that snapshot in the
 page. Its resource inspectors read that snapshot rather than mixing it with a
-later build. The header names the artifact and the Git HEAD recorded at build
-time; content hashes in the build evidence identify the actual source snapshot.
+later build. The header names the artifact and its working-tree snapshot digest.
+The recorded Git base is ancestry provenance only: neat can package and verify
+staged, unstaged, and relevant untracked owned inputs before a promotion commit.
 
 The Mounts view reads the APIs already exposed by opened sandboxes:
 `pxCubeExperience`, `pxCubeScaffold`, or `pxCubeMocks`. It lists real owner names
