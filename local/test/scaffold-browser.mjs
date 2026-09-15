@@ -63,7 +63,7 @@ try {
     await frame.locator('#mount-name').filter({ hasText: 'mock.build-bag.2' }).waitFor();
     assert.equal(await frame.locator('#draft-name').inputValue(), 'Untitled bag');
     await frame.locator('#interactive').click();
-    await frame.waitForFunction(() => document.getElementById('draft-name').value === 'My fairway bag');
+    await page.waitForFunction(() => document.querySelector('#thing')?.contentDocument?.getElementById('draft-name')?.value === 'My fairway bag');
     const retained = await inspect();
     assert.deepEqual(retained.runs['mock.build-bag'], saved);
     assert.equal(retained.runs['mock.build-bag.1'].value.sc.draft.name, 'Only test one');
