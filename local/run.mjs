@@ -159,7 +159,7 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
     {
       const distDir = path.join(assembly, 'dist');
       const precache = ['./', './index.html', './shell.css', './shell.mjs', './sw.js', './neat.html',
-        './tick-part-checklist.js'];
+        './tick-part-checklist.js', './pxc.js'];
       for (const { id, ok } of results) {
         if (!ok) continue;
         const rp = path.join(distDir, 'experiences', id, 'receipt.json');

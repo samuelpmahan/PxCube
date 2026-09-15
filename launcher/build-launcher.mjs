@@ -203,4 +203,7 @@ for (const file of ['shell.css', 'shell.mjs']) writeFileSync(join(DIST, file), r
 // The review checklist component is vendored (vendor/neat/tick-part-checklist.js)
 // so the launcher makes no cross-origin requests and works offline.
 writeFileSync(join(DIST, 'tick-part-checklist.js'), readFileSync(new URL('../vendor/neat/tick-part-checklist.js', import.meta.url)));
+// neat's PxC execution store is browser-safe (no node: imports). The console
+// hydrates retained worlds into a real PxC instance and inspects through it.
+writeFileSync(join(DIST, 'pxc.js'), readFileSync(new URL('../vendor/neat/dist/pxc.js', import.meta.url)));
 console.log(`launcher: ${shipped.length} shipped, ${failed.length} failed`);
