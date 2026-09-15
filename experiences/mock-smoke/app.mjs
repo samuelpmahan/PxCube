@@ -49,6 +49,121 @@ $('smoke').onclick = async () => {
 owner.openInteractive('shelf');
 draw();
 
+// Tests view: the catalog is built from the repo's real test files, and the
+// runnable ones execute here through the node: shims (see the import map).
+// Tests run inside test-seam sessions: results land in MockPxC run records,
+// worlds stay inspectable, and any recorded run replays in a distinct sandbox.
+function renderSessionWorlds(session) {
+  const box = $('tests-worlds');
+  const snapshot = session.snapshot();
+  const section = document.createElement('div'); section.className = 'session-worlds';
+  const total = snapshot.worlds.reduce((n, w) => n + w.runs.length, 0);
+  const header = document.createElement('h3');
+  header.textContent = `Session worlds · ${total} runs retained in MockPxC`;
+  section.append(header);
+  for (const { owner: ownerIndex, runs } of snapshot.worlds) {
+    for (const run of runs) {
+      const row = document.createElement('div'); row.className = 'world-row';
+      const kindLabel = run.kind === 'replay' ? `replay of ${run.replayOf}` : run.kind === 'interactive' ? 'interactive' : `test run${run.iteration === undefined ? '' : ` ${run.iteration}`}`;
+      const label = document.createElement('span');
+      label.textContent = `${run.name} · ${kindLabel} · ${run.changes.length} recorded writes`;
+      const button = document.createElement('button'); button.textContent = 'Replay in a distinct sandbox';
+      button.onclick = () => startReplay(session, ownerIndex, run.name);
+      row.append(label, button); section.append(row);
+    }
+  }
+  const hint = document.createElement('p'); hint.className = 'hint';
+  hint.textContent = 'A replay performs the recorded writes again, step by step, in its own sandbox. The recorded run is never written to.';
+  section.append(hint); box.append(section);
+}
+function startReplay(session, ownerIndex, runName) {
+  const panel = $('replay'); panel.replaceChildren();
+  let replay;
+  try { replay = session.replay(ownerIndex, runName); }
+  catch (error) { panel.textContent = `Stopped: ${error.message}`; return; }
+  $('tests-worlds').replaceChildren();
+  renderSessionWorlds(session);
+  const title = document.createElement('h3');
+  title.textContent = `Replay · ${replay.source} performed again in ${replay.name}`;
+  const controls = document.createElement('div'); controls.className = 'toolbar';
+  const stepButton = document.createElement('button'); stepButton.textContent = 'Step';
+  const allButton = document.createElement('button'); allButton.textContent = 'Run all';
+  const counter = document.createElement('p'); counter.className = 'hint';
+  const change = document.createElement('p'); change.className = 'hint';
+  const state = document.createElement('pre');
+  const fidelity = document.createElement('p'); fidelity.className = 'hint';
+  const paint = () => {
+    counter.textContent = `Step ${replay.applied} of ${replay.total}`;
+    const next = replay.changeAt(replay.applied);
+    change.textContent = next ? `next: ${next.address} becomes ${JSON.stringify(next.after)}` : 'every recorded write has been performed';
+    state.textContent = JSON.stringify(replay.state().value, null, 2);
+    stepButton.disabled = replay.applied >= replay.total;
+  };
+  stepButton.onclick = () => { replay.applyNext(); paint(); };
+  allButton.onclick = () => {
+    replay.runAll(); paint();
+    fidelity.textContent = replay.matches()
+      ? 'Replay fidelity holds: the distinct sandbox reached the recorded final state.'
+      : 'Replay fidelity FAILED: the sandbox diverged from the recorded run.';
+  };
+  controls.append(stepButton, allButton); panel.append(title, controls, counter, change, state, fidelity);
+  paint();
+}
+try {
+  const catalogResponse = await fetch('./tests/catalog.json');
+  if (!catalogResponse.ok) throw Error(`test catalog unavailable (${catalogResponse.status})`);
+  const catalog = await catalogResponse.json();
+  const files = $('tests-files');
+  for (const entry of catalog) {
+    const wrap = document.createElement('div'); wrap.className = 'test-file';
+    const badge = document.createElement('p'); badge.className = 'eyebrow';
+    badge.textContent = entry.runnable ? 'Runs in this browser' : 'Node/CI only';
+    const title = document.createElement('h3'); title.textContent = entry.file;
+    const list = document.createElement('ul');
+    for (const name of entry.tests) { const item = document.createElement('li'); item.textContent = name; list.append(item); }
+    wrap.append(badge, title, list);
+    if (!entry.runnable && entry.note) { const note = document.createElement('p'); note.className = 'hint'; note.textContent = entry.note; wrap.append(note); }
+    files.append(wrap);
+  }
+  const runnable = catalog.filter(entry => entry.runnable);
+  const runButton = $('run-tests');
+  runButton.disabled = runnable.length === 0;
+  let runCount = 0;
+  runButton.onclick = async () => {
+    runButton.disabled = true;
+    $('tests-results').replaceChildren();
+    $('tests-worlds').replaceChildren();
+    $('replay').replaceChildren();
+    $('tests-status').textContent = 'Running…';
+    let passed = 0, failed = 0;
+    try {
+      for (const entry of runnable) {
+        runCount += 1;
+        const sessionKey = `browser-run-${runCount}`;
+        const header = document.createElement('h3'); header.textContent = entry.file;
+        const list = document.createElement('ul'); $('tests-results').append(header, list);
+        const seam = await import('./tests/local/test/test-seam.mjs');
+        seam.setActiveTestSession(sessionKey);
+        const shim = await import('node:test');
+        shim.default.reset();
+        await import(`./tests/${entry.file}?run=${runCount}`);
+        const session = seam.testSession(sessionKey);
+        await shim.default.runAll(result => {
+          session.recordResult({ testFile: entry.file, testName: result.name, ok: result.ok, error: result.ok ? null : result.error });
+          const item = document.createElement('li');
+          item.className = result.ok ? 'test-pass' : 'test-fail';
+          item.textContent = result.ok ? `pass · ${result.name}` : `FAIL · ${result.name} — ${result.error}`;
+          list.append(item);
+          if (result.ok) passed += 1; else failed += 1;
+        });
+        renderSessionWorlds(session);
+      }
+      $('tests-status').textContent = failed === 0 ? `${passed} passed. Results and worlds are retained in MockPxC.` : `${passed} passed, ${failed} failed.`;
+    } catch (error) { $('tests-status').textContent = `Stopped: ${error.message}`; }
+    finally { runButton.disabled = false; }
+  };
+} catch (error) { $('tests-status').textContent = `Test catalog unavailable: ${error.message}`; }
+
 } catch (error) {
   $('status').textContent = `Stopped: ${error.message}. Existing retained data was not discarded.`;
   for (const button of document.querySelectorAll('button')) button.disabled = true;

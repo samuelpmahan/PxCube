@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMockMounts } from '../mock-mounts.mjs';
+import { testSession } from './test-seam.mjs';
 import { worlds, resolveAddress, resolveWorldValue } from '../../mock-pxc/mock-pxc.mjs';
-const memory = () => { const values = new Map(); return {getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)}; };
-const owner = storage => createMockMounts({storage,key:'test',seedIdentity:'fixture-source-digest'});
+// Owners come from the test seam now: same isolated owners as before, but the
+// session registers them so results and worlds stay auditable (and replayable).
+const session = testSession();
+const memory = () => session.memory();
+const owner = (storage, opts) => session.owner(storage, opts);
 test('owned resolver preserves fixture dotted-key and nested resolution', () => {
   for(const address of ['px.discs','px.discs.buzzz','fn.flight.total','fn.flight.average','oc.sync.now','sc.draft.name']) {
     assert.deepEqual(resolveWorldValue(structuredClone(worlds.shelf),address),resolveAddress('shelf',address));
@@ -56,10 +59,10 @@ test('interactive identity resumes without reseeding; numbered tests remain inde
   const unchanged=resumed.inspect();assert.throws(()=>resumed.openInteractive('shelf','studio'),/different kind or world/);assert.deepEqual(resumed.inspect(),unchanged);
 });
 test('legacy numbered worlds retain their exact data without assigning a historical purpose', () => {
-  const storage=memory(), original=owner(storage), legacy=original.createTestRun('shelf');
+  const storage=memory(), original=owner(storage,{key:'test'}), legacy=original.createTestRun('shelf');
   legacy.writeScratch('sc.draft',{name:'Manually edited in the earlier demo',slots:[]});
   const old=JSON.parse(storage.getItem('test'));delete old.runs[legacy.name].kind;storage.setItem('test',JSON.stringify(old));
-  const resumed=owner(storage);assert.deepEqual(resumed.inspect(),old);assert.equal(resumed.list()[0].kind,'legacy');
+  const resumed=owner(storage,{key:'test'});assert.deepEqual(resumed.inspect(),old);assert.equal(resumed.list()[0].kind,'legacy');
   assert.equal(resumed.openInteractive('shelf').name,'mock.shelf');
   assert.equal(resumed.createTestRun('shelf').name,'mock.shelf.2');
   assert.deepEqual(resumed.handle(legacy.name).inspect(),old.runs[legacy.name]);
