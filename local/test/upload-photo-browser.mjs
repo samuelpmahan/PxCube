@@ -46,7 +46,7 @@ try {
   assert.equal(await page.locator('#ntc-strip').isVisible(), false);
   assert.equal(await page.locator('#control-drawer-toggle').getAttribute('aria-expanded'), 'false');
 
-  await surface.locator('#mold-search').fill('buz disc');
+  await surface.locator('#mold-search').fill('buzzz');
   await surface.locator('#mold-options [role="option"]').first().click();
   await surface.locator('#photo').setInputFiles(path.join(root, 'local/studio-demo/assets/tee-shot-original.jpg'));
 
