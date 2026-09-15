@@ -10,10 +10,9 @@ function replaceOnce(text, from, to) {
   if (text.split(from).length !== 2) throw Error(`Studio import seam changed: ${from}`);
   return text.replace(from,to);
 }
-export function buildStudio() {
+export function buildStudio(config = JSON.parse(fs.readFileSync('experience.json'))) {
   const vendor = path.resolve('../../vendor/studio'), adapter = path.resolve('../../local/studio-sandbox');
   const source = JSON.parse(fs.readFileSync(path.join(vendor,'SOURCE.json'))), files = [];
-  const config = JSON.parse(fs.readFileSync('experience.json'));
   fs.mkdirSync('dist', {recursive:true});
   for (const [file, expected] of Object.entries(source.files)) {
     const bytes = fs.readFileSync(path.join(vendor,file));

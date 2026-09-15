@@ -1,14 +1,20 @@
 {
   "schemaVersion": 1,
-  "id": "PXCUBE-build-bag",
-  "outcome": "Choose exact copies, arrange them, and keep a named bag.",
+  "id": "PXCUBE-export-graphics",
   "location": {
-    "component": "experiences/build-bag"
+    "component": "experiences/export-graphics"
   },
   "target": {
     "kind": "pcr",
-    "identity": "pcr.pxcube.build-bag"
+    "identity": "pcr.pxcube.export-graphics"
   },
+  "dependencies": [],
+  "status": "review",
+  "blockers": [],
+  "checkpoints": [],
+  "acceptanceRefs": [],
+  "promotionRefs": [],
+  "outcome": "Inspect a captured graphic and download the exact SVG or PNG.",
   "requirements": [
     {
       "id": "package",
@@ -16,7 +22,7 @@
     },
     {
       "id": "behavior",
-      "text": "Choose exact copies, arrange them, and keep a named bag."
+      "text": "Inspect a captured graphic and download the exact SVG or PNG."
     },
     {
       "id": "inspection",
@@ -27,11 +33,5 @@
       "text": "Sam inspects the actual minimal Experience; checks do not imply acceptance."
     }
   ],
-  "dependencies": [],
-  "status": "review",
-  "blockers": [],
-  "checkpoints": [],
-  "acceptanceRefs": [],
-  "promotionRefs": [],
   "resume": "Review this minimal candidate in the local NTC shell. Read docs/demo-experiences-m.md and evidence/demo-experiences-m. Acceptance and promotion await Sam; no verdict has been filed for him."
 }

@@ -1,71 +1,51 @@
-// E2E: BuildBag scaffold experience, driven in Node through the DOM shim.
-// The app loads its tidy-resolved config and reaches its PxC boards through
-// the shell's kernel API directly, the same window.parent.pxc the launcher
-// exposes. This test plays the shell. Assertions go through the app's own
-// pxCubeScaffold seam, the same object the browser inspects.
+// The shipped BuildBag now uses the Studio consumer. Exercise its actual
+// packaged model, as the Upload/Shelf model tests do; scaffold behavior remains
+// covered by scaffold.test.mjs and scaffold-browser.mjs on a generated fixture.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { installDomShim } from './dom-shim.mjs';
-import { siteFile, sitePath } from './e2e-site.mjs';
-import { createPxcHost } from '../../pxc-kernel.mjs';
-import * as pxc from '../../../vendor/neat/dist/pxc.js';
-import { worlds, NAMESPACES } from '../../../mock-pxc/mock-pxc.mjs';
-
-const { document, localStorage } = installDomShim({ baseDir: sitePath('experiences', 'build-bag') });
-// The test is the shell: it exposes the same window.pxc.ownerFor the
-// launcher gives frames, backed by a real kernel host.
-const host = createPxcHost({ storage: localStorage, seeds: { worlds, namespaces: NAMESPACES }, pxc });
-globalThis.parent = {
-  pxc: Object.freeze({
-    ownerFor(key, experienceId, seedIdentity) {
-      if (experienceId) host.experienceForKey.set(key, experienceId);
-      return host.kernelFor(key, seedIdentity);
-    },
-  }),
+import { siteFile } from './e2e-site.mjs';
+const { openDemo } = await import(siteFile('experiences/build-bag', 'model.mjs'));
+const memory = () => {
+  let raw = null;
+  return { getItem: () => raw, setItem: (_key, value) => { raw = value; } };
 };
-await import(siteFile('experiences', 'build-bag', 'app.mjs'));
 
-const scaffold = globalThis.window.pxCubeScaffold;
-assert.ok(scaffold, 'app exposes its scaffold seam on window.pxCubeScaffold');
-const status = document.getElementById('status').textContent;
-assert.doesNotMatch(status, /Stopped/, `app booted cleanly (status: ${status})`);
-
-test('config loads and the scaffold renders its title and steps', () => {
-  assert.equal(document.getElementById('title').textContent, 'BuildBag');
-  assert.equal(document.title, 'BuildBag');
-  const steps = document.getElementById('steps').children.map(li => li.textContent);
-  assert.deepEqual(steps, ['Choose discs', 'Arrange your bag', 'Create bag']);
-  assert.equal(document.getElementById('draft-form').hidden, false);
-  assert.equal(document.getElementById('draft-label').textContent, 'Bag name');
+test('the shipped BuildBag creates an ordered bag of exact physical copies', async () => {
+  const storage = memory(), model = await openDemo(storage);
+  const rows = model.experience.shelf();
+  assert.equal(rows.length, 8);
+  const selected = [rows[2].address, rows[0].address, rows[1].address];
+  await model.patch({ name: 'Fieldwork', selection: selected });
+  const reordered = await model.reorder(2, 0);
+  assert.deepEqual(reordered, [selected[2], selected[0], selected[1]]);
+  await model.patch({ selection: reordered });
+  const address = await model.createBag(), bag = model.value(address);
+  assert.equal(bag.name, 'Fieldwork');
+  assert.deepEqual(bag.versions.map(item => item.address), reordered);
+  assert.deepEqual(bag.discIds, reordered.map(item => model.value(item).id));
+  assert.equal(model.pxc.get(address).composition.calculation, model.pxc.get('fn.createBag'));
+  const restored = await openDemo(storage);
+  assert.deepEqual(restored.experience.bags()[0].bag, bag);
 });
 
-test('the shelf input resolves through the kernel world', async () => {
-  const current = await scaffold.current();
-  assert.match(current.name, /^mock\.build-bag/);
-  const discs = await scaffold.resolve(`${current.name}.px.discs`);
-  assert.ok(Array.isArray(discs) && discs.length > 0, 'scaffold input px.discs has discs');
-  const draft = await scaffold.resolve(`${current.name}.sc.draft`);
-  assert.equal(draft.name, 'Untitled bag');
+test('the shipped BuildBag retains its draft and keeps another sandbox isolated', async () => {
+  const storage = memory(), model = await openDemo(storage);
+  const selection = [model.experience.shelf()[0].address];
+  await model.patch({ name: 'My draft', selection });
+  const restored = await openDemo(storage);
+  assert.equal(restored.context.name, 'My draft');
+  assert.deepEqual(restored.context.selection, selection);
+  assert.equal(restored.experience.bags().length, 0);
+  const other = await openDemo(memory());
+  assert.equal(other.context.name, '');
+  assert.deepEqual(other.context.selection, []);
+  assert.equal(other.experience.bags().length, 0);
 });
 
-test('saving the draft name writes through the kernel, per sandbox', async () => {
-  const before = (await scaffold.current()).name;
-  document.getElementById('draft-name').value = 'Fieldwork';
-  await document.getElementById('draft-form').onsubmit({ preventDefault() {} });
-  assert.match(document.getElementById('status').textContent, /Draft saved/);
-  assert.equal((await scaffold.resolve(`${before}.sc.draft`)).name, 'Fieldwork');
-
-  // A new test sandbox starts from the seed; the saved sandbox keeps its name.
-  await document.getElementById('new-test').onclick();
-  const current = await scaffold.current();
-  assert.notEqual(current.name, before);
-  assert.equal((await scaffold.resolve(`${current.name}.sc.draft`)).name, 'Untitled bag');
-
-  // Switching back to the saved sandbox through the app's own control
-  // restores its draft name; cross-sandbox addresses stay rejected.
-  document.getElementById('mounts').value = before;
-  await document.getElementById('mounts').onchange();
-  assert.equal((await scaffold.current()).name, before);
-  assert.equal((await scaffold.resolve(`${before}.sc.draft`)).name, 'Fieldwork');
-  assert.throws(() => scaffold.resolve(`${current.name}.sc.draft`), /outside/);
+test('the shipped BuildBag rejects stale or repeated physical copies', async () => {
+  const model = await openDemo(memory());
+  const address = model.experience.shelf()[0].address;
+  await assert.rejects(model.experience.createBag('Duplicate', [address, address]), /more than once/);
+  await assert.rejects(model.experience.createBag('Missing', ['ds.px.disc.missing']), /stale or absent/);
+  assert.equal(model.experience.bags().length, 0);
 });
