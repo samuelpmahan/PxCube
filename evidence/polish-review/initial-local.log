@@ -166,9 +166,9 @@ test at local/test/console.test.mjs:31:1
 test at local/test/console.test.mjs:40:1
 ✖ pxc.js ships offline and same-origin (30.88708ms)
   AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
-  
+
     assert.ok(existsSync(new URL('../../dist/pxc.js', import.meta.url), 'pxc.js ships in dist'))
-  
+
       at TestContext.<anonymous> (file:///Users/samuelmahan/Documents/ChatGPT/Pyto/PxCube/local/test/console.test.mjs:41:10)
       at Test.runInAsyncScope (node:async_hooks:227:14)
       at Test.run (node:internal/test_runner/test:1382:25)

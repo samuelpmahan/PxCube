@@ -37,14 +37,14 @@ test at local/test/e2e/e2e-build-bag.test.mjs:13:1
 ✖ the shipped BuildBag creates an ordered bag of exact physical copies (2013.780625ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-  
+
     [
   -   'ds.px.disc.save-2',
       'ds.px.disc.save-3',
       'ds.px.disc.save-1',
   +   'ds.px.disc.save-2'
     ]
-  
+
       at TestContext.<anonymous> (file:///Users/samuelmahan/Documents/ChatGPT/Pyto/PxCube/local/test/e2e/e2e-build-bag.test.mjs:23:10)
       at async Test.run (node:internal/test_runner/test:1389:7)
       at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
