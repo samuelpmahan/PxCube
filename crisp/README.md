@@ -5,6 +5,10 @@ work, crisp is the seam: `neat add` uses crisp to scaffold and register, and
 crisp manages builds based on tidy manifests. crisp never decides what to
 build and never freezes anything; it builds whatever the manifest points at.
 
+The optional `lib/optimization-links.mjs` bridge exposes the shared Browser
+Optimization Store to preview callers. It is advisory: package and check keep
+their existing behavior, including for unrelated Experiences.
+
 ## The model
 
 - An **exp manifest is a pointer**, not a hash. It points at a working folder

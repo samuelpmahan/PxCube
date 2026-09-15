@@ -1,6 +1,7 @@
 import { createPxC, registerPart, readPart, MissingPartError } from './pxc.js';
 import { createPxcHost } from './pxc-kernel.mjs';
 import { worlds as seedWorlds, NAMESPACES } from './mock-pxc.mjs';
+import { SCENARIOS, scenarioUrl } from './scenario-loader.mjs';
 const $ = id => document.getElementById(id);
 const state = JSON.parse($('ntc-state').textContent);
 const manifests = new Map(state.manifests.map(m => [m.id, m]));
@@ -100,9 +101,17 @@ function openExperience(id) {
   $('frame-count').textContent = `${retainedFrames.size} opened frame${retainedFrames.size === 1 ? '' : 's'}`;
   document.querySelectorAll('.experience-link').forEach(el => el.classList.toggle('current', el.dataset.open === id));
   showView('experience');
-  // Preserve an explicit choice. Otherwise, the first opened Experience gets
-  // the whole viewport while the persistent trigger keeps controls discoverable.
-  if (controlDrawerPreference === null) setControlDrawerCollapsed(true, { remember: false });
+  // OneStepOneViewport: an Experience owns the viewport while it is active.
+  // The polished trigger keeps workspace controls one tap away without making
+  // the work/build dashboard part of the Experience itself.
+  setControlDrawerCollapsed(true, { remember: false });
+}
+const scenarioSelect = $('scenario-select');
+for (const scenario of SCENARIOS) scenarioSelect.append(new Option(scenario.label, scenario.id));
+function loadScenario() {
+  if (!activeId) return;
+  const frame = retainedFrames.get(activeId);
+  if (frame) frame.src = scenarioUrl(`./experiences/${activeId}/index.html`, scenarioSelect.value);
 }
 
 // The kernels are the owners now: frames reach them through window.pxc and the
@@ -371,7 +380,14 @@ for (const [id, manifest] of manifests) {
 document.querySelectorAll('[data-view]').forEach(el => el.onclick = () => { if (el.dataset.view === 'experiences') selectTab('exp'); showView(el.dataset.view); });
 document.querySelectorAll('#tabs button').forEach(el => el.onclick = () => selectTab(el.dataset.tab));
 document.querySelectorAll('button.card[data-id]').forEach(el => el.onclick = () => openExperience(el.dataset.id));
-$('back').onclick = () => { selectTab('exp'); showView('experiences'); };
+$('back').onclick = () => {
+  selectTab('exp');
+  showView('experiences');
+  // Leaving an Experience restores the workspace chrome. The collapse is a
+  // viewport ownership rule, not a persistent user preference.
+  setControlDrawerCollapsed(false, { remember: false });
+};
+$('load-scenario').onclick = loadScenario;
 $('inspect-owner').onclick = () => inspectOwner();
 $('inspect-manifest').onclick = () => inspectManifest(activeId);
 $('inspect-build').onclick = () => inspectBuild(activeId);

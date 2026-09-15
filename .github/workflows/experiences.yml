@@ -1,13 +1,10 @@
 # .github/workflows/experiences.yml
 #
-# Each Experience ships its own THING. The workflow discovers every
-# experiences/*/experience.json, then delegates everything else to crisp:
-# each THING is packaged (`crisp package`: manifest and mount validation,
-# build, content-addressed output chunks, wiring-manifest receipt) and
-# verified (`crisp verify`: the chunks re-hashed against the receipt, the
-# honest check) in its own matrix leg (fail-fast: false, so one broken build
-# never blocks the others). The launcher then wires the resulting artifacts
-# together and the Page deploys.
+# Each Experience ships its own THING. The workflow discovers the same
+# dependency-aware package targets as local PxCube. Every matrix leg restores
+# its exact content-addressed package when available; only a target whose
+# source/build inputs changed compiles again. We still stage every verified
+# THING so launcher assembly is a complete, honest Page on every deployment.
 #
 # This file is a thin wrapper by design. All build, test, and package logic
 # lives in crisp/; this workflow only calls it. crisp's own test suite runs
@@ -58,16 +55,24 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The immediately preceding commit is enough for normal pushes;
+          # affected-targets falls back safely to all targets if a base is not
+          # available (for example, a force push).
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - id: matrix
         run: |
-          matrix=$(for d in experiences/*/; do
-            [ -f "${d}experience.json" ] || continue
-            node crisp/bin/crisp resolve "$d" | jq -c --arg id "$(basename "$d")" '. + {id: $id}'
-          done | jq -cs '.')
+          base="${{ github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then base=""; fi
+          matrix=$(node local/affected-targets.mjs --base "$base" --head "$GITHUB_SHA" --matrix | jq -c '.')
           echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+          echo "### Package target plan" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "$matrix" | jq '[.[] | {id, affected, reasons}]' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   build:
     needs: [discover, crisp-selftest]
@@ -82,9 +87,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: restore exact crisp package
+        id: package-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            experiences/${{ matrix.exp.id }}/${{ matrix.exp.outDir }}
+            experiences/${{ matrix.exp.id }}/.crisp
+          key: pxcube-package-v1-${{ runner.os }}-node22-${{ matrix.exp.packageKey }}
       - name: package THING with crisp
+        if: steps.package-cache.outputs.cache-hit != 'true'
         run: |
           node crisp/bin/crisp package "experiences/${{ matrix.exp.id }}"
+      - name: verify cached or newly packaged THING
+        run: |
           node crisp/bin/crisp verify "experiences/${{ matrix.exp.id }}/.crisp/receipt.json" "experiences/${{ matrix.exp.id }}/${{ matrix.exp.outDir }}"
       - name: stage artifact
         run: |

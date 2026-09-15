@@ -1,27 +1,81 @@
-import { initialDraft, seeds, flightFields, type Draft, type Depiction, type createExperience } from './model.ts';
+import { initialDraft, flightFields, type Draft, type Depiction, type createExperience } from './model.ts';
 import { plasticGuides } from './plastics.ts';
 import { createDiscView } from './disc-view.ts';
 import { recipeFromDraft, validatePaintRecipe, renderDepiction } from './paint-recipe.ts';
 import { fuzzyMoldOptions } from './mold-search.ts';
 
-export type PhotoCrop = { positionX: number; positionY: number; zoom: number; scaleX: number; scaleY: number };
+export type PhotoCrop = { centerX: number; centerY: number; radiusX: number; radiusY: number };
 
-export function photoCropPlacement(width: number, height: number, size: number, crop: PhotoCrop) {
-  if (![width, height, size].every(value => Number.isFinite(value) && value > 0)) throw Error('Photo dimensions must be positive.');
-  const scaleX = Math.min(1.15, Math.max(.85, crop.scaleX));
-  const scaleY = Math.min(1.15, Math.max(.85, crop.scaleY));
-  const zoom = Math.min(3, Math.max(1, crop.zoom));
-  const cover = Math.max(size / (width * scaleX), size / (height * scaleY));
-  const drawnWidth = width * cover * scaleX * zoom;
-  const drawnHeight = height * cover * scaleY * zoom;
-  const positionX = Math.min(1, Math.max(-1, crop.positionX));
-  const positionY = Math.min(1, Math.max(-1, crop.positionY));
-  return {
-    x: (size - drawnWidth) / 2 - positionX * Math.max(0, drawnWidth - size) / 2,
-    y: (size - drawnHeight) / 2 - positionY * Math.max(0, drawnHeight - size) / 2,
-    width: drawnWidth,
-    height: drawnHeight,
+export const cropZoomNudges = [-10, -5, -3, -1, 1, 3, 5, 10] as const;
+const minCropRadiusRatio = .03;
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+function validDimensions(width: number, height: number) {
+  if (![width, height].every(value => Number.isFinite(value) && value > 0)) throw Error('Photo dimensions must be positive.');
+}
+
+/** Selection center and ellipse radii are normalized independently to source width/height. */
+export function clampCropSelection(width: number, height: number, crop: PhotoCrop): PhotoCrop {
+  validDimensions(width, height);
+  const minimum = minCropRadiusRatio;
+  const radiusX = clamp(Number.isFinite(crop.radiusX) ? crop.radiusX : .4, minimum, .5);
+  const radiusY = clamp(Number.isFinite(crop.radiusY) ? crop.radiusY : .4, minimum, .5);
+  const centerX = clamp(Number.isFinite(crop.centerX) ? crop.centerX : .5, radiusX, 1 - radiusX);
+  const centerY = clamp(Number.isFinite(crop.centerY) ? crop.centerY : .5, radiusY, 1 - radiusY);
+  return { centerX, centerY, radiusX, radiusY };
+}
+
+export function cropForDetectedCircle(width: number, height: number, circle: DiscCircle): PhotoCrop {
+  return clampCropSelection(width, height, { centerX: circle.x / width, centerY: circle.y / height, radiusX: circle.radius / width, radiusY: circle.radius / height });
+}
+
+export function resizeCrop(width: number, height: number, crop: PhotoCrop, deltaPercent: number): PhotoCrop {
+  if (!cropZoomNudges.includes(deltaPercent as typeof cropZoomNudges[number])) throw Error('Unsupported crop selection nudge.');
+  const bounded = clampCropSelection(width, height, crop);
+  const radiusDelta = deltaPercent / 200;
+  return clampCropSelection(width, height, { ...bounded, radiusX: bounded.radiusX + radiusDelta, radiusY: bounded.radiusY + radiusDelta });
+}
+
+export function sourceImagePlacement(width: number, height: number, size: number) {
+  validDimensions(width, height);
+  if (!Number.isFinite(size) || size <= 0) throw Error('Preview size must be positive.');
+  const scale = Math.min(size / width, size / height);
+  return { x: (size - width * scale) / 2, y: (size - height * scale) / 2, width: width * scale, height: height * scale, scale };
+}
+
+export function cropExportMapping(width: number, height: number, size: number, crop: PhotoCrop) {
+  validDimensions(width, height);
+  if (!Number.isFinite(size) || size <= 0) throw Error('Output size must be positive.');
+  const selection = clampCropSelection(width, height, crop), radiusX = selection.radiusX * width, radiusY = selection.radiusY * height;
+  const centerX = selection.centerX * width, centerY = selection.centerY * height;
+  return { sourceX: centerX - radiusX, sourceY: centerY - radiusY, sourceWidth: radiusX * 2, sourceHeight: radiusY * 2, outputSize: size, selection };
+}
+
+export type DiscCircle = { x: number; y: number; radius: number; confidence: number };
+
+// A deliberately small, deterministic edge-ring search. It runs once against a
+// downsampled working image; it is a helpful first guess, not a recognition claim.
+export function detectDiscCircle(data: Uint8ClampedArray, width: number, height: number): DiscCircle | null {
+  if (width < 32 || height < 32 || data.length < width * height * 4) return null;
+  const sample = (x: number, y: number) => {
+    const i = (Math.max(0, Math.min(height - 1, Math.round(y))) * width + Math.max(0, Math.min(width - 1, Math.round(x)))) * 4;
+    return [data[i], data[i + 1], data[i + 2]];
   };
+  const distance = (a: number[], b: number[]) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+  const shortest = Math.min(width, height), minRadius = Math.max(12, Math.floor(shortest * .18)), maxRadius = Math.floor(shortest * .48);
+  let best: DiscCircle | null = null;
+  for (let radius = minRadius; radius <= maxRadius; radius += 4) {
+    const step = Math.max(3, Math.floor(radius / 8));
+    for (let y = radius; y <= height - radius; y += step) for (let x = radius; x <= width - radius; x += step) {
+      let score = 0;
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 18) {
+        const dx = Math.cos(angle), dy = Math.sin(angle);
+        score += distance(sample(x + dx * (radius - 2), y + dy * (radius - 2)), sample(x + dx * (radius + 2), y + dy * (radius + 2)));
+      }
+      score = score / 36 * (1 + radius / shortest);
+      if (!best || score > best.confidence) best = { x, y, radius, confidence: score };
+    }
+  }
+  return best && best.confidence >= 18 ? best : null;
 }
 
 // No store, persistence, sibling view or app boot is created by importing this module.
@@ -50,8 +104,12 @@ function eligibleSeeds() { return experience.seedOptions(); }
 function closeSeedChoices() {
   $('mold-options').hidden = true; input('mold-search').setAttribute('aria-expanded', 'false'); input('mold-search').removeAttribute('aria-activedescendant'); activeSeed = -1;
 }
+function ensureAvailableSeeds() {
+  if (!availableSeeds.length) availableSeeds = eligibleSeeds();
+  return availableSeeds;
+}
 function renderSeedChoices(query = input('mold-search').value) {
-  visibleSeeds = fuzzyMoldOptions(availableSeeds, query, seedLabel);
+  visibleSeeds = fuzzyMoldOptions(ensureAvailableSeeds(), query, seedLabel);
   $('mold-options').replaceChildren(...visibleSeeds.map((row, index) => {
     const option = document.createElement('div'); option.id = `mold-option-${index}`; option.setAttribute('role', 'option'); option.setAttribute('aria-selected', 'false'); option.textContent = seedLabel(row);
     option.addEventListener('pointerdown', event => { event.preventDefault(); chooseSeed(row); }); return option;
@@ -66,11 +124,9 @@ async function chooseSeed(row: SeedOption) {
   const nextPainting = await experience.selectPainting(random);
   if (token !== selectionSerial) return;
   painting = nextPainting; depiction = nextPainting; resetPaintSeed(); preview();
-  reviewIndex = experience.seedOptions().findIndex(option => option.address === row.address); showReview();
 }
 // Start with an honest empty composer. The mold input is the first decision;
 // no catalog item or plastic should be implied before the user chooses one.
-availableSeeds = eligibleSeeds();
 input('mold-search').value = '';
 input('seed').value = '';
 const overrides = document.createElement('details');
@@ -81,6 +137,7 @@ function draft(): Draft { return { mold: input('seed').value, nickname: input('n
   ...Object.fromEntries(flightFields.filter(field => input(`own-${field}`).checked).map(field => [field, input(`disc-${field}`).value === '' ? null : Number(input(`disc-${field}`).value)])) }; }
 function preview() {
  try {
+  syncDepictionControls();
   const material = draft();
   if (!material.mold) {
    $('flight').textContent = '';
@@ -103,10 +160,10 @@ function preview() {
   (input('depiction-choice') as unknown as HTMLSelectElement).querySelector<HTMLOptionElement>('option[value="photo"]')!.disabled = !photo;
   input('depiction-choice').value = depiction.kind;
   const art = renderDepiction({ recipe: recipe(material), photo, choice: depiction.kind, seed: experience.seedAt(material.mold) });
-  $('preview').replaceChildren(discView(material, depiction, art));
+  const view=discView(material, depiction, art); $('preview').replaceChildren(view); applyFinishPreview();
  } catch (error) { $('status').textContent = String(error); }
 }
-$('composer').addEventListener('input', event => { if (event.target !== $('depiction-choice')) preview(); });
+$('composer').addEventListener('input', event => { const id=(event.target as HTMLElement).id; if (event.target !== $('depiction-choice') && !finishIds.includes(id)) preview(); });
 function suggestPlastics() {
   if (!input('seed').value) {
    input('plastic').replaceChildren(new Option('Choose a mold first', ''));
@@ -155,37 +212,130 @@ input('mold-search').addEventListener('keydown', event => {
 input('mold-search').addEventListener('blur', () => { setTimeout(() => { if (!input('seed').value) $('status').textContent = 'Choose a mold from the suggestions.'; closeSeedChoices(); }); });
 $('shuffle').addEventListener('click', async () => { painting = await experience.selectPainting(random); depiction = painting; resetPaintSeed(); preview(); });
 $('depiction-choice').addEventListener('change', () => { depiction = input('depiction-choice').value === 'photo' && photo ? photo : painting; preview(); });
-let cropBitmap: ImageBitmap | null = null; let cropFile: File | null = null; let cropUrl = '';
-const cropIds = ['crop-position-x', 'crop-position-y', 'crop-zoom', 'crop-scale-x', 'crop-scale-y'];
-function cropState(): PhotoCrop { return { positionX: Number(input('crop-position-x').value), positionY: Number(input('crop-position-y').value), zoom: Number(input('crop-zoom').value), scaleX: Number(input('crop-scale-x').value), scaleY: Number(input('crop-scale-y').value) }; }
-function resetCrop() { for (const id of cropIds) input(id).value = id.includes('position') ? '0' : '1'; updateCropPreview(); }
-function updateCropPreview() {
-  const crop = cropState(), img = $('crop-preview') as HTMLImageElement;
-  img.style.transform = `translate(${crop.positionX * -20}%, ${crop.positionY * -20}%) scale(${crop.zoom * crop.scaleX}, ${crop.zoom * crop.scaleY})`;
+const finishIds = ['rim-size', 'underglow', 'stamp-x', 'stamp-y'];
+const paintingControls = [...root.querySelectorAll<HTMLElement>('.painting-only')];
+function syncDepictionControls() {
+  const photoMode = depiction.kind === 'photo';
+  root.classList.toggle('photo-mode', photoMode);
+  paintingControls.forEach(control => { control.hidden = photoMode; });
+  if (photoMode) {
+    input('customize-label').checked = false;
+    input('customize-label').setAttribute('aria-expanded', 'false');
+    $('paint-label-controls').hidden = true;
+  }
 }
+function applyFinishPreview() {
+  const view = $('preview').querySelector<HTMLElement>('figure'); if (!view) return;
+  const glow = Number(input('underglow').value), painted = depiction.kind !== 'photo';
+  view.classList.add('experimental-preview');
+  view.style.setProperty('--exp-rim', `${painted ? Number(input('rim-size').value) : 0}px`);
+  view.style.setProperty('--exp-glow-blur', `${Math.round(glow * 34)}px`);
+  view.style.setProperty('--exp-glow-spread', `${Math.round(glow * 8)}px`);
+  view.style.setProperty('--exp-glow-color', `rgba(230,182,110,${(.25 + glow * .65).toFixed(2)})`);
+  view.style.setProperty('--exp-x', `${painted ? Number(input('stamp-x').value) * 8 : 0}%`);
+  view.style.setProperty('--exp-y', `${painted ? Number(input('stamp-y').value) * 8 : 0}%`);
+}
+for (const id of finishIds) input(id).addEventListener('input', applyFinishPreview);
+let cropBitmap: ImageBitmap | null = null; let cropFile: File | null = null; let cropWorking: HTMLCanvasElement | null = null;
+const cropIds = ['crop-center-x', 'crop-center-y', 'crop-radius-x', 'crop-radius-y'];
+function cropState(): PhotoCrop { return { centerX: Number(input('crop-center-x').value), centerY: Number(input('crop-center-y').value), radiusX: Number(input('crop-radius-x').value), radiusY: Number(input('crop-radius-y').value) }; }
+function setCrop(next: PhotoCrop) {
+  if (!cropWorking) return;
+  const crop = clampCropSelection(cropWorking.width, cropWorking.height, next);
+  input('crop-center-x').value = String(crop.centerX); input('crop-center-y').value = String(crop.centerY);
+  input('crop-radius-x').value = String(crop.radiusX); input('crop-radius-y').value = String(crop.radiusY);
+  input('crop-scale-x').value = String(crop.radiusX * 2); input('crop-scale-y').value = String(crop.radiusY * 2);
+  scheduleCropPreview();
+}
+function circleLockedCrop(width: number, height: number, ratio = .4): PhotoCrop {
+  const radius = Math.min(width, height) * ratio;
+  return { centerX:.5, centerY:.5, radiusX:radius / width, radiusY:radius / height };
+}
+function resetCrop() { if (cropWorking) setCrop(circleLockedCrop(cropWorking.width, cropWorking.height)); }
+function updateCropPreview() {
+  if (!cropWorking) return;
+  const canvas = $('crop-preview') as HTMLCanvasElement, ctx = canvas.getContext('2d')!, crop = cropState();
+  const placement = sourceImagePlacement(cropWorking.width, cropWorking.height, canvas.width);
+  ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#dfe5db'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(cropWorking, placement.x, placement.y, placement.width, placement.height);
+  const centerX = placement.x + crop.centerX * placement.width, centerY = placement.y + crop.centerY * placement.height;
+  const radiusX = crop.radiusX * cropWorking.width * placement.scale, radiusY = crop.radiusY * cropWorking.height * placement.scale;
+  // One selection boundary only: everything it contains is kept; the
+  // semitransparent exterior is what will be trimmed. The border is painted
+  // into the same source-space canvas, so it stays honest as the stage grows.
+  ctx.save(); ctx.fillStyle = 'rgba(18,39,31,.68)'; ctx.beginPath(); ctx.rect(0, 0, canvas.width, canvas.height); ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2, true); ctx.fill('evenodd'); ctx.beginPath(); ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,.96)'; ctx.lineWidth = Math.max(2, canvas.width / 260); ctx.stroke(); ctx.restore();
+  ($('crop-zoom-value') as HTMLOutputElement).value = `${Math.round(crop.radiusX * 200)}% × ${Math.round(crop.radiusY * 200)}% selection`;
+}
+let cropFrame = 0;
+function scheduleCropPreview() { if (cropFrame) return; cropFrame = requestAnimationFrame(() => { cropFrame = 0; updateCropPreview(); }); }
+type CropDrag = { mode:'move'|'resize'; x:number; y:number; crop:PhotoCrop };
+let cropDrag:CropDrag|null=null;
+const cropStage=$('crop-stage');
+function stagePoint(event: PointerEvent) { const rect = cropStage.getBoundingClientRect(); return { x:event.clientX - rect.left, y:event.clientY - rect.top }; }
+function stageSelection(crop: PhotoCrop) {
+  if (!cropWorking) return null;
+  const placement = sourceImagePlacement(cropWorking.width, cropWorking.height, cropStage.clientWidth), centerX = placement.x + crop.centerX * placement.width, centerY = placement.y + crop.centerY * placement.height;
+  return { placement, centerX, centerY, radiusX: crop.radiusX * cropWorking.width * placement.scale, radiusY: crop.radiusY * cropWorking.height * placement.scale };
+}
+cropStage.addEventListener('pointerdown',event=>{
+  if (!cropWorking) return;
+  const crop = cropState(), view = stageSelection(crop); if (!view) return;
+  const point = stagePoint(event), normalized = Math.hypot((point.x - view.centerX) / view.radiusX, (point.y - view.centerY) / view.radiusY), edge = Math.max(10 / Math.max(1, view.radiusX), .08);
+  if (Math.abs(normalized - 1) <= edge) cropDrag={mode:'resize',x:event.clientX,y:event.clientY,crop};
+  else if (normalized < 1) cropDrag={mode:'move',x:event.clientX,y:event.clientY,crop};
+  else return;
+  cropStage.setPointerCapture(event.pointerId); event.preventDefault();
+});
+cropStage.addEventListener('pointermove',event=>{
+  if (!cropDrag || !cropWorking) return;
+  const view = stageSelection(cropDrag.crop), point = stagePoint(event); if (!view) return;
+  if (cropDrag.mode === 'move') {
+    const dx = (event.clientX - cropDrag.x) / view.placement.scale, dy = (event.clientY - cropDrag.y) / view.placement.scale;
+    setCrop({ ...cropDrag.crop, centerX:cropDrag.crop.centerX + dx / cropWorking.width, centerY:cropDrag.crop.centerY + dy / cropWorking.height });
+  } else {
+    const sourceX = (point.x - view.placement.x) / view.placement.scale, sourceY = (point.y - view.placement.y) / view.placement.scale;
+    const factor = Math.max(Math.abs(sourceX - cropDrag.crop.centerX * cropWorking.width) / (cropDrag.crop.radiusX * cropWorking.width), Math.abs(sourceY - cropDrag.crop.centerY * cropWorking.height) / (cropDrag.crop.radiusY * cropWorking.height));
+    setCrop({ ...cropDrag.crop, radiusX:cropDrag.crop.radiusX * factor, radiusY:cropDrag.crop.radiusY * factor });
+  }
+});
+for (const eventName of ['pointerup','pointercancel']) cropStage.addEventListener(eventName,()=>{cropDrag=null;});
+function stepZoom(deltaPercent:number){ if (cropWorking) setCrop(resizeCrop(cropWorking.width, cropWorking.height, cropState(), deltaPercent)); }
+cropStage.addEventListener('wheel',event=>{event.preventDefault();stepZoom(event.deltaY<0?10:-10);},{passive:false});
+for (const button of root.querySelectorAll<HTMLButtonElement>('[data-zoom-delta]')) button.addEventListener('click',()=>stepZoom(Number(button.dataset.zoomDelta)));
+function autoFitCrop() {
+  if (!cropWorking) return resetCrop();
+  const context = cropWorking.getContext('2d', { willReadFrequently:true })!, circle = detectDiscCircle(context.getImageData(0,0,cropWorking.width,cropWorking.height).data,cropWorking.width,cropWorking.height);
+  setCrop(circle ? cropForDetectedCircle(cropWorking.width,cropWorking.height,circle) : circleLockedCrop(cropWorking.width,cropWorking.height));
+  $('photo-crop-help').textContent = circle ? 'Auto-fit found the likely edge. Drag inside the aperture to move it; drag its edge to resize.' : 'We centered the photo. Drag inside the aperture to move it; drag its edge to resize.';
+}
+$('crop-auto').addEventListener('click', autoFitCrop);
 function discardPendingPhoto() {
-  if (cropBitmap) cropBitmap.close(); cropBitmap = null; cropFile = null;
-  if (cropUrl) URL.revokeObjectURL(cropUrl); cropUrl = ''; input('photo').value = '';
+  if (cropBitmap) cropBitmap.close(); cropBitmap = null; cropFile = null; cropWorking = null; input('photo').value = '';
 }
 $('photo').addEventListener('change', async () => {
   const file = input('photo').files?.[0]; if (!file) return;
   photoBusy = true; input('save').disabled = true; input('shuffle').disabled = true;
   try {
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 15_000_000) throw new Error('Choose a JPEG, PNG or WebP image under 15 MB. HEIC is not supported by this browser.');
-    discardPendingPhoto(); cropFile = file; cropBitmap = await createImageBitmap(file); cropUrl = URL.createObjectURL(file); ($('crop-preview') as HTMLImageElement).src = cropUrl; resetCrop(); ($('photo-crop') as HTMLDialogElement).showModal(); input('crop-position-x').focus();
+    discardPendingPhoto(); cropFile = file; cropBitmap = await createImageBitmap(file);
+    const workingScale = Math.min(1, 720 / Math.max(cropBitmap.width, cropBitmap.height)); cropWorking = document.createElement('canvas'); cropWorking.width = Math.max(1, Math.round(cropBitmap.width * workingScale)); cropWorking.height = Math.max(1, Math.round(cropBitmap.height * workingScale)); cropWorking.getContext('2d')!.drawImage(cropBitmap,0,0,cropWorking.width,cropWorking.height);
+    resetCrop(); autoFitCrop(); ($('photo-crop') as HTMLDialogElement).showModal(); $('crop-auto').focus();
   } catch (error) { discardPendingPhoto(); $('status').textContent = String(error); }
   finally { photoBusy = false; updateSaveState(); input('shuffle').disabled = false; }
 });
 $('crop-cancel').addEventListener('click', () => { ($('photo-crop') as HTMLDialogElement).close(); discardPendingPhoto(); $('status').textContent = photo ? 'Photo crop cancelled. Your prepared photo is unchanged.' : 'Photo crop cancelled. Your painting is unchanged.'; });
 $('photo-crop').addEventListener('cancel', event => { event.preventDefault(); $('crop-cancel').click(); });
-for (const id of cropIds) input(id).addEventListener('input', updateCropPreview);
+for (const id of cropIds) input(id).addEventListener('input', scheduleCropPreview);
+for (const id of ['crop-scale-x', 'crop-scale-y']) { input(id).min = '.06'; input(id).max = '1'; input(id).step = '.01'; }
+input('crop-scale-x').addEventListener('input', () => { if (cropWorking) setCrop({ ...cropState(), radiusX: Number(input('crop-scale-x').value) / 2 }); });
+input('crop-scale-y').addEventListener('input', () => { if (cropWorking) setCrop({ ...cropState(), radiusY: Number(input('crop-scale-y').value) / 2 }); });
 $('crop-reset').addEventListener('click', resetCrop);
 $('crop-apply').addEventListener('click', () => {
   if (!cropBitmap || !cropFile) return;
   const bitmap = cropBitmap, fileName = cropFile.name, size = Math.min(1024, Math.max(256, Math.min(bitmap.width, bitmap.height)));
   const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext('2d')!, placement = photoCropPlacement(bitmap.width, bitmap.height, size, cropState());
-  ctx.save(); ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2); ctx.clip(); ctx.drawImage(bitmap, placement.x, placement.y, placement.width, placement.height); ctx.restore();
+  const ctx = canvas.getContext('2d')!, mapping = cropExportMapping(bitmap.width, bitmap.height, size, cropState());
+  ctx.save(); ctx.beginPath(); ctx.ellipse(size / 2, size / 2, size / 2, size / 2, 0, 0, Math.PI * 2); ctx.clip(); ctx.drawImage(bitmap, mapping.sourceX, mapping.sourceY, mapping.sourceWidth, mapping.sourceHeight, 0, 0, size, size); ctx.restore();
   photo = { kind: 'photo', name: fileName, src: canvas.toDataURL('image/webp', .86) }; depiction = photo;
   ($('photo-crop') as HTMLDialogElement).close(); discardPendingPhoto(); $('status').textContent = 'Photo cropped locally. The original file is unchanged.'; preview(); updateSaveState();
 });
@@ -204,44 +354,5 @@ $('composer').addEventListener('submit', async event => {
   finally { updateSaveState(); }
 });
 input('Color1').value = defaults.Color1; input('Color2').value = defaults.Color2; resetPaintSeed(); suggestPlastics(); preview();
-// The review carousel may begin at the first catalog row, but it must not
-// select that row in the compose form.
-let reviewIndex = 0;
-const reviewFields = ['manufacturer', 'mold', 'speed', 'glide', 'turn', 'fade'];
-function showReview() {
-  const options = experience.seedOptions(), { seed } = options[reviewIndex];
-  $('review-progress').textContent = `${reviewIndex + 1} / ${options.length}`;
-  $('review-name').textContent = `${seed.manufacturer} · ${seed.name}`;
-  const values = [seed.manufacturer, seed.name, ...flightFields.map(field => seed[field])];
-  reviewFields.forEach((field, i) => { input(`review-${field}`).value = values[i] == null ? '' : String(values[i]); input(`review-${field}`).readOnly = true; });
-  let provenance = root.querySelector<HTMLElement>('#review-provenance');
-  if (!provenance) { provenance = document.createElement('p'); provenance.id = 'review-provenance'; $('review-name').after(provenance); }
-  const link = document.createElement('a'); link.href = seed.source ?? '#'; link.target = '_blank'; link.rel = 'noopener'; link.textContent = seed.sourceKind ?? 'Source';
-  provenance.replaceChildren(link, document.createTextNode(` · ${seed.reviewStatus}. ${seed.conflicting ? 'Sources disagree: ' + seed.observations?.map(o => o.flight.map(n => n ?? '?').join('/')).join(' versus ') : ''}`));
-  $('review-apply').hidden = true; input('review-yes').disabled = false; input('review-no').disabled = false;
-}
-async function review(verdict: 'confirmed' | 'corrected') {
-  input('review-yes').disabled = true; input('review-apply').disabled = true;
-  const oldAddress = experience.seedOptions()[reviewIndex].address;
-  try {
-    const correction = { manufacturer: input('review-manufacturer').value.trim(), name: input('review-mold').value.trim(), ...Object.fromEntries(flightFields.map(field => [field, input(`review-${field}`).value === '' ? null : Number(input(`review-${field}`).value)])) };
-    const address = await experience.reviewSeed(oldAddress, verdict, correction);
-    availableSeeds = eligibleSeeds();
-    if (input('seed').value === oldAddress) {
-      const selected = availableSeeds.find(option => option.address === address);
-      if (selected) { input('seed').value = selected.address; input('mold-search').value = seedLabel(selected); closeSeedChoices(); }
-    }
-    suggestPlastics(); preview();
-    $('review-status').textContent = `${verdict === 'confirmed' ? 'Confirmed' : 'Corrected'} ${correction.name}. ${reviewIndex === seeds.length - 1 ? 'Pass complete; back to the first seed.' : 'Next mold.'}`;
-    reviewIndex = (reviewIndex + 1) % experience.seedOptions().length; showReview();
-  } catch (error) { $('review-status').textContent = String(error); }
-  finally { input('review-yes').disabled = !$('review-apply').hidden; input('review-apply').disabled = false; }
-}
-$('review-yes').addEventListener('click', () => review('confirmed'));
-$('review-no').addEventListener('click', () => { reviewFields.forEach(field => { input(`review-${field}`).readOnly = false; }); $('review-apply').hidden = false; input('review-yes').disabled = true; input('review-no').disabled = true; input('review-speed').focus(); });
-$('seed-review').addEventListener('submit', event => { event.preventDefault(); review('corrected'); });
-showReview();
-['speed', 'glide', 'turn', 'fade'].forEach(field => { input(`review-${field}`).required = false; input(`review-${field}`).placeholder = 'Unknown'; });
-
 return { refresh: preview };
 }

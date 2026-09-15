@@ -25,6 +25,12 @@ After this checkpoint is accepted, its runnable board command is:
 node dist/src/cli.js board --root fixtures/generic-project
 ```
 
+## Browser optimization advice
+
+The optional `optimization-links` export can attach a `BO-*` reference to
+work/evidence. The shared registry lives at `../../browser-optimizations`; it
+is advisory and is not part of `neat check` or the board's readiness rules.
+
 ## Boundaries
 
 - Execution/inspection, verification, human acceptance, and Tidy promotion are separate predicates.

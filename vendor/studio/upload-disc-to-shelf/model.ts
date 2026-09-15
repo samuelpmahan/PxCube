@@ -64,6 +64,19 @@ export function createExperience(log: (event: Record<string, unknown>) => void =
   const emit = (event: Record<string, unknown>) => { events.push(event); try { log(event); } catch (error) { console.warn('Diagnostic sink failed; receipt remains in PxC.', error); } };
   const selected = new Map<Depiction, string>();
   const currentSeeds = new Map(options.state?.currentSeeds ?? seeds.map(seed => [seed.id, seedAddress(seed.id)]));
+  // Keep the immutable catalog index outside PxC for read/search paths. PxC
+  // remains authoritative for corrections and persistence, but asking for
+  // suggestions should not perform hundreds of browser-side Part lookups on
+  // every keystroke.
+  const baseSeedOptions = new Map(seeds.map(({ mold, flight, ...seed }) => [seedAddress(seed.id), Object.freeze({ ...seed, name: mold, ...Object.fromEntries(flightFields.map((field, i) => [field, flight[i]])) })]));
+  let seedCacheKey = '', seedCache: { address: string; seed: Mold }[] = [];
+  const indexedSeeds = () => {
+    const key = [...currentSeeds].map(([id, address]) => `${id}:${address}`).join('|');
+    if (key === seedCacheKey) return seedCache;
+    seedCacheKey = key;
+    seedCache = [...currentSeeds].map(([id, address]) => ({ address, seed: (address === seedAddress(id) ? baseSeedOptions.get(address) : pxc.get(address).value) as Mold }));
+    return seedCache;
+  };
   const persist = (nextShelf = shelfAddress, molds = currentSeeds, nextBags = bagsAddress) => options.persist?.({ pxc, serial, shelfAddress: nextShelf, currentSeeds: [...molds], bagsAddress: nextBags });
   const candidates = new Map<string, string>();
   const artAt = (disc: Disc) => disc.art ?? `ds.px.art.${disc.id}`;
@@ -85,7 +98,7 @@ export function createExperience(log: (event: Record<string, unknown>) => void =
     get persistenceStatus() { return options.status?.() ?? 'Session only · reload starts fresh.'; },
     get shelfAddress() { return shelfAddress; },
     get bagsAddress() { return bagsAddress; },
-    seedOptions(query = ''): { address: string; seed: Mold }[] { return find({ collection: [...currentSeeds.values()].map(address => ({ address, seed: pxc.get(address).value })), query, fields: (row: any) => [row.seed.manufacturer, row.seed.name] }); },
+    seedOptions(query = ''): { address: string; seed: Mold }[] { return find({ collection: indexedSeeds(), query, fields: (row: any) => [row.seed.manufacturer, row.seed.name] }); },
     seedAt(address: string): Mold { return pxc.get(address).value; },
     resolve(disc: Draft) { return read({ base: pxc.get(disc.mold).value, own: disc }); },
     depictionSources(address: string) {
@@ -189,6 +202,7 @@ export function createExperience(log: (event: Record<string, unknown>) => void =
       pxc.set(`ds.px.receipt.${operationId}`, new Part(receipt));
       persist(shelfAddress, new Map([...currentSeeds, [seed.id, into]]));
       currentSeeds.set(seed.id, into);
+      seedCacheKey = '';
       emit(receipt);
       return into;
     },

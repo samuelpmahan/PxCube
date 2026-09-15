@@ -10,6 +10,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { hashAppSources } from '../crisp/lib/packager.mjs';
 import { loadManifest } from '../crisp/lib/manifest.mjs';
 import { validateWorkItem } from '../vendor/neat/dist/work-items.js';
+import { resolveTargets } from './affected-targets.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const root = path.resolve(here, '..');
@@ -84,6 +85,12 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
     if (registry.schemaVersion !== 1 || !registry.apps || Array.isArray(registry.apps)) throw Error('Unsupported tidy app registry.');
     const lineagePath = path.join(repo, '.tidy/manifest.json');
     const lineage = fs.existsSync(lineagePath) ? read(lineagePath) : { schemaVersion: 1, types: {} };
+    // Package outputs are immutable for this input key. The target resolver
+    // is also used by Pages CI, so a local rebuild and an Actions rebuild
+    // agree on what can be restored versus what must compile again.
+    const targets = await resolveTargets(repo);
+    const targetById = new Map(targets.map(target => [target.id, target]));
+    const packageCache = path.join(state, 'package-cache');
     const results = [];
     for (const id of apps(repo)) {
       if (!idOK(id)) throw Error(`Unsupported app directory: ${id}`);
@@ -118,9 +125,28 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
         if (!['exp', 'clean'].includes(registration.track)) throw Error('Invalid tidy registration track.');
         drift = registration.sourceHash !== sourceHash || registration.sharedToolsHash !== sharedToolsHash;
         lineage.types[`pxcube-${id}`] ??= { version: /^\d+\.\d+\.\d+$/.test(manifest.version ?? '') ? manifest.version : '0.0.0', root: `experiences/${id}`, clean: 'clean', experiments: 'exp', tests: [] };
-        const receipt = stagedRoot
-          ? await importPackage(path.join(stagedRoot, `exp-${id}`), destination, manifest, verifyReceipt)
-          : await packageApp(destination);
+        const target = targetById.get(id);
+        const cacheDir = target ? path.join(packageCache, target.packageKey, id) : null;
+        let cache = 'miss';
+        let receipt;
+        if (stagedRoot) {
+          receipt = await importPackage(path.join(stagedRoot, `exp-${id}`), destination, manifest, verifyReceipt);
+          cache = 'staged';
+        } else if (cacheDir && fs.existsSync(path.join(cacheDir, manifest.outDir)) && fs.existsSync(path.join(cacheDir, '.crisp/receipt.json'))) {
+          copyTree(path.join(cacheDir, manifest.outDir), path.join(destination, manifest.outDir));
+          copyTree(path.join(cacheDir, '.crisp'), path.join(destination, '.crisp'));
+          const cachedReceipt = read(path.join(destination, '.crisp/receipt.json'));
+          const verified = await verifyReceipt(path.join(destination, '.crisp/receipt.json'), path.join(destination, manifest.outDir));
+          if (!verified.ok) throw Error(`Local package cache failed receipt verification: ${JSON.stringify(verified.mismatches)}`);
+          receipt = cachedReceipt;
+          cache = 'hit';
+        } else {
+          receipt = await packageApp(destination);
+          if (cacheDir) {
+            copyTree(path.join(destination, manifest.outDir), path.join(cacheDir, manifest.outDir));
+            copyTree(path.join(destination, '.crisp'), path.join(cacheDir, '.crisp'));
+          }
+        }
         const index = path.join(destination, manifest.outDir, 'index.html');
         if (!fs.existsSync(index) || !fs.statSync(index).isFile()) throw Error('A Page needs index.html; crisp output enumeration alone is insufficient.');
         if (await hashAppSources(destination, await loadManifest(destination)) !== sourceHash) throw Error('Build changed its recorded source; inspect this attempt.');
@@ -130,7 +156,7 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
         write(path.join(stage, 'receipt.json'), receipt);
         // Retain the existing extended receipt URL for current consumers.
         write(path.join(stage, 'pxcube-receipt.json'), { ...receipt, runId, sharedToolsHash, outputHashes, tidy: { track: registration.track, changedSinceRegistration: drift } });
-        results.push({ id, ok: true, sourceHash, outputHashes, build: receipt.build, receipt: `experiences/${id}/receipt.json`, drift });
+        results.push({ id, ok: true, sourceHash, outputHashes, build: receipt.build, receipt: `experiences/${id}/receipt.json`, drift, cache, affected: target?.affected ?? true });
       } catch (error) {
         results.push({ id, ok: false, sourceHash: sourceHash ?? null, error: String(error), drift });
         fs.mkdirSync(destination, { recursive: true }); write(path.join(destination, 'failure.json'), results.at(-1));

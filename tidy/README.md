@@ -14,6 +14,10 @@ work, crisp is the seam. tidy has exactly two jobs:
 
 tidy never builds. crisp builds whatever tidy's registry points at.
 
+The optional `lib/optimization-links.mjs` bridge lets callers read the shared
+PxCube Browser Optimization Store while inspecting lineage. It does not gate
+registration or promotion.
+
 ## Commands
 
 ```

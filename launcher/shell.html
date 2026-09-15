@@ -65,7 +65,7 @@
         <p class="note">Retained worlds are read from this browser's storage; opened frames are read live from their own inspectors. Opening a world hydrates it into a real PxC instance and every read goes through PxC's own machinery. The console never writes to a world and never executes its code.</p>
       </section>
       <section id="viewer" hidden>
-        <div id="bar"><button id="back">All Experiences</button><strong id="thing-title"></strong><span id="frame-state" class="pill">Opened frame</span><button id="inspect-owner">Inspect owner</button><button id="inspect-manifest">Manifest</button><button id="inspect-build">Build</button></div>
+        <div id="bar"><button id="back">All Experiences</button><strong id="thing-title"></strong><label>Scenario <select id="scenario-select" aria-label="Representative scenario"></select></label><button id="load-scenario">Load</button><span id="frame-state" class="pill">Opened frame</span><button id="inspect-owner">Inspect owner</button><button id="inspect-manifest">Manifest</button><button id="inspect-build">Build</button></div>
       </section>
     </div>
   </main>

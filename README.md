@@ -46,3 +46,7 @@ Each THING runs sandboxed in its own frame. A crashing experiment cannot sink th
 `node local/run.mjs dev` builds through the pinned neat/tidy tools and Muse's crisp,
 then serves the launcher at http://127.0.0.1:4321/. See [local execution, retained
 MockPxC iterations, evidence and limits](docs/local-pages.md).
+
+Pages and local assembly share a dependency-aware package cache; see the
+[NTC release path](docs/ntc-release.md) for the affected-target graph and the
+complete-site deployment rule.
