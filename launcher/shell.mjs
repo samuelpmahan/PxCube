@@ -387,7 +387,19 @@ async function checkBuild() {
     // The loaded artifact remains the authority until an explicit reload.
   } catch { /* Static artifacts can be inspected offline. */ }
 }
-$('refresh-build').onclick = () => location.reload();
+$('refresh-build').onclick = async () => {
+  const button=$('refresh-build'); if(button.dataset.refreshing==='1') return;
+  button.dataset.refreshing='1'; button.disabled=true;
+  let reloaded=false; const reload=()=>{if(reloaded)return;reloaded=true;location.reload();};
+  const fallback=setTimeout(reload,1800);
+  try {
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{clearTimeout(fallback);reload();},{once:true});
+      const registration=await navigator.serviceWorker.getRegistration();
+      if(registration) await registration.update(); else clearTimeout(fallback),reload();
+    } else clearTimeout(fallback),reload();
+  } catch { clearTimeout(fallback); reload(); }
+};
 window.pxCubeControl = Object.freeze({ inspect: () => ({ artifact: state.runId, view, activeId, frames: [...retainedFrames.keys()], controlsCollapsed: document.body.classList.contains('controls-collapsed') }) });
 checkBuild(); setInterval(checkBuild, 5000);
 setInterval(() => { refreshMounts(); refreshConsole(); }, 2000);
