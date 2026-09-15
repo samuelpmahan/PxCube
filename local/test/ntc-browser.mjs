@@ -53,6 +53,7 @@ try {
   assert.equal(await page.locator('#navigation').isVisible(), true);
   await page.locator('#thing').evaluate(el => { el.contentWindow.identityWitness = el.contentWindow.pxCubeScaffold; });
   await frame.locator('#draft-name').fill('NTC retained draft'); await frame.getByRole('button', { name: 'Save draft' }).click();
+  await frame.locator('#status').filter({ hasText: 'Draft saved' }).waitFor();
   const owning = () => page.locator('#thing').evaluate(el => el.contentWindow.pxCubeScaffold.current());
   const saved = await owning();
   pass('the NTC header, navigation and build path remain above an active Experience');
@@ -95,7 +96,8 @@ try {
   await page.locator('[data-open="build-bag"]').click(); await frame.locator('#interactive').click();
   await page.screenshot({ path: path.join(evidence, 'experience.png') });
   await page.locator('#inspect-owner').click();
-  assert.deepEqual(JSON.parse(await page.locator('#inspector-value').textContent()), saved);
+  const ownerState = JSON.parse(await page.locator('#inspector-value').textContent());
+  assert.deepEqual(ownerState.runs['mock.build-bag'], saved);
   await page.keyboard.press('Escape');
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

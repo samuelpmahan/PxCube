@@ -1,5 +1,3 @@
-import { createMockMounts } from './local/mock-mounts.mjs';
-
 const $ = id => document.getElementById(id);
 const valueText = value => JSON.stringify(value, null, 2);
 let config, owner, active;
@@ -56,7 +54,12 @@ try {
   $('steps').replaceChildren(...config.scaffold.steps.map(step => element('li', step)));
   const draft = config.scaffold.draft;
   if (draft) { $('draft-form').hidden = false; $('draft-label').textContent = draft.label; }
-  owner = createMockMounts({ storage: localStorage, key: `pxcube.scaffold.v1:${config.id}`, seedIdentity: config.seedIdentity });
+  // The shell owns the PxC boards; this frame reaches its owner directly off
+  // the parent page. Outside the launcher there is no shell, so this fails
+  // loudly instead of hanging.
+  const shell = window.parent?.pxc;
+  if (!shell?.ownerFor) throw Error('Open this Experience from the launcher');
+  owner = shell.ownerFor(`pxcube.scaffold.v1:${config.id}`, config.id, config.seedIdentity);
   active = owner.openInteractive(config.id, config.scaffold.world);
   $('interactive').onclick = () => action(() => { active = owner.openInteractive(config.id, config.scaffold.world); }, 'Interactive draft restored.');
   $('new-test').onclick = () => action(() => { active = owner.createTestRun(config.id, config.scaffold.world); }, 'New test sandbox starts from the seed. Earlier sandboxes remain.');

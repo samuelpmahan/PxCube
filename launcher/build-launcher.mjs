@@ -203,7 +203,10 @@ for (const file of ['shell.css', 'shell.mjs']) writeFileSync(join(DIST, file), r
 // The review checklist component is vendored (vendor/neat/tick-part-checklist.js)
 // so the launcher makes no cross-origin requests and works offline.
 writeFileSync(join(DIST, 'tick-part-checklist.js'), readFileSync(new URL('../vendor/neat/tick-part-checklist.js', import.meta.url)));
-// neat's PxC execution store is browser-safe (no node: imports). The console
-// hydrates retained worlds into a real PxC instance and inspects through it.
+// neat's PxC execution store is browser-safe (no node: imports). The shell
+// hosts the PxC kernels the Experiences bind to, so it ships the kernel
+// (import-free), the vendored PxC, and the seed definitions.
 writeFileSync(join(DIST, 'pxc.js'), readFileSync(new URL('../vendor/neat/dist/pxc.js', import.meta.url)));
+writeFileSync(join(DIST, 'pxc-kernel.mjs'), readFileSync(new URL('../local/pxc-kernel.mjs', import.meta.url)));
+writeFileSync(join(DIST, 'mock-pxc.mjs'), readFileSync(new URL('../mock-pxc/mock-pxc.mjs', import.meta.url)));
 console.log(`launcher: ${shipped.length} shipped, ${failed.length} failed`);

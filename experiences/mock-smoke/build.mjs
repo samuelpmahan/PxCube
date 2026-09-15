@@ -5,14 +5,13 @@ const repo = '../..'; // The experience builds with its directory as cwd; the re
 fs.mkdirSync('dist/local', { recursive: true });
 fs.mkdirSync('dist/mock-pxc', { recursive: true });
 for (const file of ['index.html','app.mjs','style.css']) fs.copyFileSync(file, `dist/${file}`);
-fs.copyFileSync('../../local/mock-mounts.mjs', 'dist/local/mock-mounts.mjs');
 const source = fs.readFileSync('../../mock-pxc/mock-pxc.mjs');
 fs.writeFileSync('dist/mock-pxc/mock-pxc.mjs', source);
 fs.writeFileSync('dist/seed-identity.mjs', `export default ${JSON.stringify(createHash('sha256').update(source).digest('hex'))};\n`);
 
 // ---- Tests view ----
-// MockPxC is the testcontainer: its unit tests run in the browser against the
-// same seam. Mirror the repo-relative layout under dist/tests so the real test
+// The kernel is the testcontainer: its unit tests run in the browser against
+// the same seam. Mirror the repo-relative layout under dist/tests so the real test
 // files' relative imports keep working, and map the node: specifiers they
 // import to the shims above through the import map in index.html. A test file
 // is browser-runnable when every import is either a shimmed node: specifier

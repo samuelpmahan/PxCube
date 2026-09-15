@@ -61,7 +61,8 @@ class ShimElement {
     return this.querySelectorAll(selector)[0] ?? null;
   }
   click() {
-    if (typeof this.onclick === 'function') this.onclick();
+    if (typeof this.onclick === 'function') return this.onclick();
+    return undefined;
   }
 }
 

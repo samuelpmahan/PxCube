@@ -1,4 +1,6 @@
 import { createPxC, registerPart, readPart, MissingPartError } from './pxc.js';
+import { createPxcHost } from './pxc-kernel.mjs';
+import { worlds as seedWorlds, NAMESPACES } from './mock-pxc.mjs';
 const $ = id => document.getElementById(id);
 const state = JSON.parse($('ntc-state').textContent);
 const manifests = new Map(state.manifests.map(m => [m.id, m]));
@@ -6,6 +8,19 @@ const results = new Map(state.results.map(r => [r.id, r]));
 const packaged = new Set(state.packagedIds);
 const retainedFrames = new Map();
 let activeId = null, view = 'experiences';
+// The shell owns every Experience's PxC boards. Frames on the same page
+// reach the kernel API directly through window.parent.pxc, no messages.
+// Same storage keys as before, so retained browser state loads untouched.
+const pxcHost = createPxcHost({ storage: localStorage, seeds: { worlds: seedWorlds, namespaces: NAMESPACES }, pxc: { createPxC, registerPart, readPart } });
+// The one-page API frames use: ownerFor hands out the kernel (owner) for a
+// storage key, creating it on first use. The shell stays the single writer.
+window.pxc = Object.freeze({
+  ownerFor(key, experienceId, seedIdentity) {
+    if (typeof key !== 'string' || !key) throw Error('ownerFor needs a storage key');
+    if (experienceId) pxcHost.experienceForKey.set(key, experienceId);
+    return pxcHost.kernelFor(key, seedIdentity);
+  },
+});
 const make = (tag, text, className) => {
   const el = document.createElement(tag); el.textContent = text ?? '';
   if (className) el.className = className;
@@ -56,7 +71,7 @@ function openExperience(id) {
   let frame = retainedFrames.get(id);
   if (!frame) {
     frame = document.createElement('iframe'); frame.className = 'thing'; frame.title = manifest.title;
-    frame.setAttribute('sandbox', (manifest.sandbox?.length ? manifest.sandbox : ['allow-scripts']).filter(t => !['allow-top-navigation', 'allow-top-navigation-by-user-activation'].includes(t)).join(' '));
+    frame.setAttribute('sandbox', (manifest.sandbox?.length ? manifest.sandbox : ['allow-scripts', 'allow-same-origin']).filter(t => !['allow-top-navigation', 'allow-top-navigation-by-user-activation'].includes(t)).join(' '));
     frame.src = `./experiences/${id}/index.html`;
     frame.addEventListener('load', refreshMounts);
     retainedFrames.set(id, frame); $('viewer').append(frame);
@@ -68,32 +83,33 @@ function openExperience(id) {
   showView('experience');
 }
 
-// Read the owner APIs already exposed by the sandbox implementations. No new
-// mirror of their domain stores, and no inference that packaged means running.
-function ownerFor(id) {
-  const win = retainedFrames.get(id)?.contentWindow;
-  if (win?.pxCubeExperience) return { list: () => win.pxCubeExperience.list(), current: () => win.pxCubeExperience.current(), inspect: () => win.pxCubeExperience.inspect() };
-  if (win?.pxCubeScaffold) return { list: () => Object.values(win.pxCubeScaffold.inspect().runs), current: () => win.pxCubeScaffold.current(), inspect: () => win.pxCubeScaffold.current() };
-  if (win?.pxCubeMocks) return { list: () => win.pxCubeMocks.list(), current: () => null, inspect: () => win.pxCubeMocks.inspect() };
-  return null;
+// The kernels are the owners now: frames reach them through window.pxc and the
+// shell reads their boards directly. No frame poking, no copied stores.
+function kernelForExperience(id) {
+  const found = [...pxcHost.kernels].find(([key]) => (pxcHost.experienceForKey.get(key) ?? guessExperienceForKey(key)) === id);
+  return found?.[1] ?? null;
 }
-function inspectOwner(id = activeId) {
+async function inspectOwner(id = activeId) {
   try {
-    const owner = ownerFor(id);
-    inspect('runtime / owner', manifests.get(id).title, owner ? owner.inspect() : { status: 'This frame does not expose a mount inspector.' }, 'Read now from this Experience’s owning context. The parent has not copied its store.');
+    const kernel = kernelForExperience(id);
+    inspect('runtime / owner', manifests.get(id).title, kernel ? await kernel.inspect() : { status: 'This Experience has not bound a kernel yet.' }, 'Read now from the hypervisor kernel that owns this Experience’s boards.');
   } catch (error) { inspect('runtime / unavailable', manifests.get(id)?.title ?? id, { error: error.message }); }
 }
-function refreshMounts() {
+async function inspectMountRun(key, runName) {
+  try {
+    const kernel = pxcHost.kernels.get(key);
+    inspect('runtime / mount', runName, kernel ? await kernel.handle(runName).inspect() : { status: 'This kernel is no longer bound.' }, 'Read now from the hypervisor kernel. The console has not written to this world.');
+  } catch (error) { inspect('runtime / unavailable', runName, { error: error.message }); }
+}
+async function refreshMounts() {
   const mounts = [];
-  for (const [id] of retainedFrames) {
+  for (const [key, kernel] of pxcHost.kernels) {
+    const id = pxcHost.experienceForKey.get(key) ?? guessExperienceForKey(key);
     try {
-      const owner = ownerFor(id);
-      if (!owner) { mounts.push({ id, unavailable: 'Inspector not exposed or still loading' }); continue; }
-      const current = owner.current();
-      const entries = owner.list();
-      if (!entries.length) mounts.push({ id, unavailable: 'No mounts reported' });
-      for (const entry of entries) mounts.push({ id, name: entry.name, kind: entry.kind, current: current?.name === entry.name, active: view === 'experience' && id === activeId });
-    } catch { mounts.push({ id, unavailable: 'Mount inspection unavailable' }); }
+      const entries = await kernel.list();
+      if (!entries.length) mounts.push({ id, key, unavailable: 'No mounts reported' });
+      for (const entry of entries) mounts.push({ id, key, name: entry.name, kind: entry.kind, active: view === 'experience' && id === activeId });
+    } catch { mounts.push({ id, key, unavailable: 'Mount inspection unavailable' }); }
   }
   $('mount-count').textContent = mounts.filter(m => m.name).length;
   if (view !== 'mounts') return;
@@ -103,19 +119,17 @@ function refreshMounts() {
     const row = make('tr'); row.dataset.owner = mount.id;
     const owner = make('td'); owner.append(button(manifests.get(mount.id).title, () => openExperience(mount.id)));
     const address = make('td'); address.append(make('code', mount.name ?? mount.unavailable));
-    const actions = make('td'); actions.append(button('Owner', () => inspectOwner(mount.id)));
-    row.append(owner, address, make('td', mount.kind ?? 'unknown'), make('td', mount.name ? (mount.current && mount.active ? 'In view' : 'Retained') : 'Opened frame'), actions);
+    const actions = make('td'); actions.append(button('Owner', () => inspectMountRun(mount.key, mount.name)));
+    row.append(owner, address, make('td', mount.kind ?? 'unknown'), make('td', mount.name ? (mount.active ? 'In view' : 'Retained') : 'No mounts yet'), actions);
     $('mount-rows').append(row);
   }
 }
 
 // PxConsole: discover / read / trace over retained and live worlds.
-// Retained worlds are read straight from this browser's storage (the
-// mock-mounts owner shape); live worlds are read from opened frames through
-// their own inspectors. Reads go through a real PxC instance: each world is
-// hydrated into parts and every open uses readPart (telemetry recorded,
-// unknown addresses raise MissingPartError). The console never writes and
-// never executes.
+// Retained worlds are read straight from this browser's storage (the kernel's
+// storage shape); live worlds are read from the hypervisor kernels that own
+// them, through real PxC reads on the Experience's own board. The console
+// never writes and never executes.
 const describeIdentities = new WeakMap();
 let describeNextId = 1;
 function describeIdentity(value) {
@@ -160,13 +174,13 @@ function hydrateWorld(entry) {
   }
   return pxc;
 }
-function experienceForKey(key) {
+function guessExperienceForKey(key) {
   const suffix = key.split(':').slice(1).join(':');
   if (manifests.has(suffix)) return suffix;
   if (key.startsWith('pxcube.mock-smoke.')) return 'mock-smoke';
   return suffix || 'unknown';
 }
-function discoverWorlds() {
+async function discoverWorlds() {
   const worlds = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -174,19 +188,19 @@ function discoverWorlds() {
     let parsed = null;
     try { parsed = JSON.parse(localStorage.getItem(key)); } catch { continue; }
     if (!parsed || parsed.schemaVersion !== 1 || !parsed.runs || Array.isArray(parsed.runs)) continue;
-    const experienceId = experienceForKey(key);
+    const experienceId = guessExperienceForKey(key);
     for (const run of Object.values(parsed.runs)) {
       worlds.push({ world: run.name, experienceId, kind: run.kind ?? 'unknown', writes: run.changes?.length ?? 0, revision: parsed.revision, source: 'Retained', run });
     }
   }
-  for (const [id] of retainedFrames) {
+  for (const [key, kernel] of pxcHost.kernels) {
     try {
-      const owner = ownerFor(id);
-      const inspected = owner?.inspect();
+      const inspected = await kernel.inspect();
+      const experienceId = pxcHost.experienceForKey.get(key) ?? guessExperienceForKey(key);
       for (const run of Object.values(inspected?.runs ?? {})) {
-        worlds.push({ world: run.name, experienceId: id, kind: run.kind ?? 'unknown', writes: run.changes?.length ?? 0, revision: inspected.revision, source: 'Live', run });
+        worlds.push({ world: run.name, experienceId, kind: run.kind ?? 'unknown', writes: run.changes?.length ?? 0, revision: inspected.revision, source: 'Live', run, kernelKey: key });
       }
-    } catch { /* frame unreadable; the retained copy still lists */ }
+    } catch { /* kernel unreadable; the retained copy still lists */ }
   }
   return worlds;
 }
@@ -196,29 +210,51 @@ async function selectWorld(entry) {
   $('console-detail').hidden = false;
   $('console-detail-eyebrow').textContent = `World · ${entry.source}`;
   $('console-detail-title').textContent = `${entry.experienceId} · ${entry.world}`;
-  // Direct inspection: the retained value is hydrated into a real PxC
-  // instance and every open goes through readPart. Reads are recorded in
-  // the board's telemetry; unknown addresses raise MissingPartError.
-  let pxc = hydrateWorld(entry);
-  const addresses = $('console-addresses'); addresses.replaceChildren();
-  for (const address of [...pxc.parts.keys()].sort()) {
-    const value = pxc.parts.get(address);
+  // Direct inspection. Live worlds are read through the hypervisor kernel's
+  // own board, the same board the Experience executes against: every open
+  // goes through readPart, reads are recorded in the live board's telemetry,
+  // and unknown addresses raise MissingPartError. Retained worlds hydrate
+  // into a fresh PxC instance. The console never writes and never executes.
+  let addresses, readOne, peekOne, sessionReads = 0, sessionNote;
+  if (entry.source === 'Live' && entry.kernelKey && pxcHost.kernels.has(entry.kernelKey)) {
+    const handle = pxcHost.kernelFor(entry.kernelKey).handle(entry.world);
+    addresses = () => handle.addresses();
+    peekOne = address => handle.peek(`${entry.world}.${address}`);
+    readOne = async address => {
+      const result = await handle.read(address);
+      sessionReads += 1;
+      return { value: result.value, receipt: result.receipt };
+    };
+    sessionNote = 'Read through PxC on the Experience’s live board. Console reads recorded in the live telemetry; the console has not written to this world.';
+  } else {
+    let pxc = hydrateWorld(entry);
+    addresses = () => [...pxc.parts.keys()].sort();
+    peekOne = address => pxc.parts.get(address);
+    readOne = address => {
+      const result = readPart(pxc, address);
+      pxc = result.pxc;
+      sessionReads += 1;
+      return { value: result.value, receipt: result.pxc.telemetry.reads.at(-1) };
+    };
+    sessionNote = 'Retained world hydrated into a fresh PxC instance. The console has not written to this world.';
+  }
+  const addressList = $('console-addresses'); addressList.replaceChildren();
+  for (const address of await addresses()) {
+    const value = await peekOne(address);
     const row = make('tr');
     const name = make('td'); name.append(make('code', address));
     const actions = make('td');
-    actions.append(button('Read', () => {
+    actions.append(button('Read', async () => {
       try {
-        const result = readPart(pxc, address);
-        pxc = result.pxc;
-        inspect('pxc / read', address, { value: safeDescribe(result.value), read: pxc.telemetry.reads.at(-1) }, `Read through PxC. ${pxc.telemetry.reads.length} console reads recorded this session. The console has not written to this world.`);
+        const result = await readOne(address);
+        inspect('pxc / read', address, { value: safeDescribe(result.value), read: result.receipt }, `${sessionNote} ${sessionReads} console reads recorded this session.`);
       } catch (error) {
         if (error instanceof MissingPartError) {
           inspect('pxc / missing', address, { address, found: false }, 'PxC raised MissingPartError: the address is not a registered part.');
         } else inspect('pxc / error', address, { error: error.message });
       }
     }));
-    row.append(name, make('td', value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value), actions);
-    addresses.append(row);
+    row.append(name, make('td', value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value), actions); addressList.append(row);
   }
   const writes = $('console-writes'); writes.replaceChildren();
   const changes = entry.run.changes ?? [];
@@ -240,11 +276,11 @@ async function selectWorld(entry) {
   $('console-trace').textContent = JSON.stringify(trace, null, 2);
   return full;
 }
-function refreshConsole() {
+async function refreshConsole() {
   if (view !== 'console') return;
   const query = $('console-filter').value.trim().toLowerCase();
   const deduped = new Map();
-  for (const entry of discoverWorlds()) {
+  for (const entry of await discoverWorlds()) {
     const key = `${entry.experienceId}::${entry.world}`;
     if (!deduped.has(key) || entry.source === 'Live') deduped.set(key, entry);
   }
@@ -266,7 +302,7 @@ function refreshConsole() {
   }
   if (consoleSelected) {
     const stillThere = rows.find(entry => entry.experienceId === consoleSelected.experienceId && entry.world === consoleSelected.world);
-    if (stillThere) selectWorld(stillThere); else { consoleSelected = null; $('console-detail').hidden = true; }
+    if (stillThere) await selectWorld(stillThere); else { consoleSelected = null; $('console-detail').hidden = true; }
   }
 }
 $('refresh-console').onclick = refreshConsole;

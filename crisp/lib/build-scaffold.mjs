@@ -13,7 +13,6 @@ export async function buildScaffold(buildUrl) {
   fs.mkdirSync(path.join(out, 'local'), { recursive: true });
   fs.mkdirSync(path.join(out, 'mock-pxc'), { recursive: true });
   for (const file of ['index.html', 'app.mjs', 'style.css']) fs.copyFileSync(path.join(app, file), path.join(out, file));
-  fs.copyFileSync(new URL('../../local/mock-mounts.mjs', import.meta.url), path.join(out, 'local/mock-mounts.mjs'));
   const seed = fs.readFileSync(new URL('../../mock-pxc/mock-pxc.mjs', import.meta.url));
   fs.writeFileSync(path.join(out, 'mock-pxc/mock-pxc.mjs'), seed);
   fs.writeFileSync(path.join(out, 'config.json'), JSON.stringify({ ...manifest, seedIdentity: createHash('sha256').update(seed).digest('hex') }, null, 2) + '\n');
