@@ -4,11 +4,20 @@ import { scopedStorage, localAddress } from './local/experience-mount.mjs';
 
 const $ = id => document.getElementById(id), frames = new Map();
 const storageRoot = `pxcube.studio.v1:${config.id}`;
+const drawerPreferenceKey = `${storageRoot}:controls-collapsed`;
 let owner, selected, current;
 const surfaces = config.mode === 'upload' ? [['live','Paint / photo · live Parts']] : [['shopping','Shopping shelf · 50 discs'],['live','Edit a disc · live Parts']];
 const pretty = value => JSON.stringify(value, (_key,item)=>typeof item === 'function' ? '[Calculation function — inspect in owning DevTools]' : item, 2);
 function stop(error) { $('status').textContent = `Stopped: ${error.message ?? error}`; $('status').className='error'; }
 function guarded(fn) { return (...args)=>{try { return fn(...args); } catch(error) {stop(error);} }; }
+function setDrawerCollapsed(collapsed, {remember=true}={}) {
+  const isCollapsed=Boolean(collapsed), toggle=$('sandbox-drawer-toggle');
+  $('sandbox-drawer').hidden=isCollapsed;
+  toggle.setAttribute('aria-expanded',String(!isCollapsed));
+  toggle.setAttribute('aria-label',isCollapsed?'Show sandbox controls':'Hide sandbox controls');
+  toggle.querySelector('.drawer-label').textContent=isCollapsed?'Sandbox':'Close';
+  if(remember) try { localStorage.setItem(drawerPreferenceKey,String(isCollapsed)); } catch { /* The drawer still works without persistence. */ }
+}
 function entryFor(source) {
   const entry = [...frames.values()].find(entry=>entry.frame?.contentWindow === source);
   if (!entry) throw Error('The caller does not own a mounted surface.');
@@ -81,6 +90,15 @@ window.pxCubeExperience=Object.freeze({contextFor,inspect:inspection,list:()=>ow
   current:()=>({name:current.name,surface:current.surface,kind:current.kind}),
 });
 $('title').textContent=config.title;document.title=config.title+' · sandbox';
+$('sandbox-drawer-toggle').onclick=()=>setDrawerCollapsed(!$('sandbox-drawer').hidden);
+document.addEventListener('keydown',event=>{
+  if(event.key === 'Escape' && !$('sandbox-drawer').hidden && !$('inspection').open) {
+    setDrawerCollapsed(true);$('sandbox-drawer-toggle').focus();
+  }
+});
+let drawerCollapsed=true;
+try { const saved=localStorage.getItem(drawerPreferenceKey);if(saved !== null) drawerCollapsed=saved === 'true'; } catch { /* Default to the review-first collapsed state. */ }
+setDrawerCollapsed(drawerCollapsed,{remember:false});
 $('surface').replaceChildren(...surfaces.map(([key,label])=>new Option(label,key)));
 $('surface').onchange=guarded(()=>open(selected,$('surface').value));
 $('session').onchange=guarded(()=>open($('session').value,$('surface').value));

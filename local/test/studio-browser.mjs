@@ -14,16 +14,30 @@ const server=http.createServer((req,res)=>{
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 function record(mode,text){checks.push({mode,text});console.log('PASS',mode,text)}
 try{
- for(const [mode,url] of [['local','http://127.0.0.1:4321/'],['pages-prefix',`http://127.0.0.1:${server.address().port}/PxCube/`]]){
+ const localUrl=process.env.PXCUBE_BASE_URL ?? 'http://127.0.0.1:4321/';
+ for(const [mode,url] of [['local',localUrl],['pages-prefix',`http://127.0.0.1:${server.address().port}/PxCube/`]]){
   const page=await browser.newPage({viewport:{width:1440,height:1000}});page.setDefaultTimeout(15000);
   page.on('pageerror',e=>errors.push({mode,message:e.message}));page.on('request',r=>requests.push({mode,url:r.url(),method:r.method()}));
   const host=()=>page.frameLocator('#thing'), surface=()=>host().frameLocator('#surfaces iframe:not([hidden])');
   const model=()=>page.locator('#thing').evaluate(f=>f.contentWindow.pxCubeExperience.inspect());
   const open=async id=>{await page.locator(`button.card[data-id="${id}"]`).click();await page.waitForFunction(()=>!!document.querySelector('#thing')?.contentWindow?.pxCubeExperience?.inspect()?.modelKind);};
+  const openSandboxControls=async()=>{if(await host().locator('#sandbox-drawer').isHidden())await host().locator('#sandbox-drawer-toggle').click();};
   await page.goto(url);await page.evaluate(()=>localStorage.setItem('discstudio.pxc.shelf.v1','real user data untouched'));
   await open('upload-disc-to-shelf');
+  assert.equal(await host().locator('#sandbox-drawer').isHidden(),true);assert.equal(await host().locator('#sandbox-drawer-toggle').getAttribute('aria-expanded'),'false');
+  assert.deepEqual(await host().locator('#surfaces').evaluate(node=>({width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height})),{width:1440,height:1000});
+  await page.locator('#thing').evaluate(f=>{f.contentWindow.drawerIdentityWitness=f.contentDocument.querySelector('#surfaces iframe:not([hidden])').contentWindow;});
+  await openSandboxControls();assert.equal(await host().locator('#sandbox-drawer-toggle').getAttribute('aria-label'),'Hide sandbox controls');
+  assert.equal(await page.locator('#thing').evaluate(f=>f.contentWindow.drawerIdentityWitness===f.contentDocument.querySelector('#surfaces iframe:not([hidden])').contentWindow),true);
+  record(mode,'Studio sandbox controls default to a discoverable collapsed drawer and opening it preserves the owning frame');
   assert.equal((await model()).discs.length,0);assert.equal(await surface().locator('#case-next').count(),0);
-  await surface().locator('#plastic').fill('ESP');await surface().locator('#weight').fill('174');await surface().locator('#save').click();
+  const moldSearch=surface().locator('#mold-search');assert.equal(await moldSearch.getAttribute('role'),'combobox');
+  await moldSearch.fill('flyng squrrel');assert.equal(await surface().locator('#mold-options [role="option"]').first().textContent(),'ABC · Flying Squirrel');await surface().locator('#mold-options [role="option"]').first().click();
+  assert.equal(await surface().locator('#plastic').isEnabled(),false);assert.equal(await surface().locator('#plastic option').first().textContent(),'Plastics not loaded for ABC');assert.equal(await surface().locator('#save').isEnabled(),false);
+  await moldSearch.fill('buz disc');assert.ok(await surface().locator('#mold-options [role="option"]').count()>0);await surface().locator('#mold-options [role="option"]').first().click();
+  assert.equal(await surface().locator('#plastic option').evaluateAll(options=>options.some(option=>option.textContent==='ESP')),true);
+  assert.equal(await surface().locator('#paint-label-controls').isHidden(),true);await surface().locator('#customize-label').check();assert.equal(await surface().locator('#paint-label-controls').isVisible(),true);
+  await surface().locator('#customize-label').uncheck();await surface().locator('#plastic').selectOption('ESP');await surface().locator('#weight').fill('174');await surface().locator('#save').click();
   await page.waitForFunction(()=>document.querySelector('#thing').contentWindow.pxCubeExperience.inspect().discs?.length===1);
   const saved=await model();assert.equal(saved.discs[0].own.depiction.kind,'painted');assert.equal(saved.discs[0].own.weight,174);
   assert.equal(await page.locator('#thing').evaluate(f=>{const h=f.contentWindow.pxCubeExperience,p=f.contentDocument.querySelector('#surfaces iframe').contentWindow.pxCubeModel;f.contentWindow.identityWitness=p.pxc;return h.resolve(h.current().name+'.'+p.experience.shelfAddress.slice(3))===p.pxc.get(p.experience.shelfAddress);}),true);
@@ -40,6 +54,10 @@ try{
   assert.equal(await page.locator('#thing').evaluate(f=>{try{f.contentWindow.pxCubeExperience.resolve('mock.upload-disc-to-shelf.1.px.shelf.0');return false;}catch{return true;}}),true);
   record(mode,'fresh test iterators preserve the interactive Part identity and reject cross-run addresses');
   await page.locator('#back').click();await open('explore-shelf');let shopping=await model();assert.equal(shopping.discs.length,50);assert.equal(shopping.modelKind,'shopping prototype objects');
+  assert.equal(await host().locator('#sandbox-drawer').isHidden(),true);await openSandboxControls();
+  assert.equal(await page.locator('#thing').evaluate(f=>localStorage.getItem('pxcube.studio.v1:upload-disc-to-shelf:controls-collapsed')),'false');
+  assert.equal(await page.locator('#thing').evaluate(f=>localStorage.getItem('pxcube.studio.v1:explore-shelf:controls-collapsed')),'false');
+  record(mode,'drawer preferences are scoped per Experience rather than leaking through the Studio host');
   assert.ok(shopping.matching.every(id=>shopping.discs[id].speed>=7&&shopping.discs[id].speed<=8));
   await surface().locator('#fs-query').fill('Passion ESP');shopping=await model();assert.ok(shopping.matching.length>0);assert.ok(shopping.matching.every(id=>shopping.discs[id].mold==='Passion'&&shopping.discs[id].plastic==='ESP'));
   await surface().locator('#fs-query').fill(shopping.discs[0].nickname);assert.equal((await model()).matching.length,0);await surface().locator('#fs-query').fill('');

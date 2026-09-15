@@ -50,6 +50,16 @@ try {
   await frame.locator('#status').filter({ hasText: /Scaffold ready|Ready ·/ }).waitFor();
   const demo = await page.locator('#thing').evaluate(el => Boolean(el.contentWindow.pxCubeDemo));
   const settle = async () => { if (demo) await page.locator('#thing').evaluate(el => el.contentWindow.pxCubeDemo.settled()); };
+  assert.equal(await page.evaluate(() => window.pxCubeControl.inspect().controlsCollapsed), true);
+  assert.equal(await page.locator('#navigation').isVisible(), false);
+  assert.equal(await page.locator('#ntc-strip').isVisible(), false);
+  assert.deepEqual(await page.locator('#thing').evaluate(el => {
+    const box = el.getBoundingClientRect();
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  }), { x: 0, y: 0, width: 1440, height: 1000 });
+  const drawerToggle = page.locator('#control-drawer-toggle');
+  assert.equal(await drawerToggle.getAttribute('aria-expanded'), 'false');
+  await drawerToggle.click();
   const header = await page.locator('#control-header').boundingBox(), strip = await page.locator('#ntc-strip').boundingBox(), viewer = await page.locator('#viewer').boundingBox();
   assert.ok(header.y >= 0 && strip.y >= header.y + header.height && viewer.y >= strip.y + strip.height);
   assert.equal(await page.locator('#navigation').isVisible(), true);
@@ -58,7 +68,7 @@ try {
   await frame.locator('#status').filter({ hasText: 'Draft saved' }).waitFor();
   const owning = () => page.locator('#thing').evaluate(el => el.contentWindow.pxCubeExperience ? el.contentWindow.pxCubeExperience.inspect() : el.contentWindow.pxCubeScaffold.current());
   const saved = await owning();
-  pass('the NTC header, navigation and build path remain above an active Experience');
+  pass('the NTC controls collapse into a discoverable drawer and restore without replacing the active Experience');
   await page.locator('#navigation [data-view="work"]').click();
   const work = page.locator('[data-work="PXCUBE-build-bag"]');
   await work.getByRole('button', { name: 'Work item', exact: true }).click();

@@ -17,8 +17,8 @@ export type CaseControls = {
 export function stepsFor(name: 'upload' | 'shelf', experience: Experience, ui: CaseControls): CaseStep[] {
   if (name === 'upload') return [
     { name: 'Set an ESP Buzzz, 174 g, painting seed 123 and a fixed label', async run() {
-      ui.input('#seed', 'ds.px.seed.buzzz'); ui.input('#plastic', 'ESP'); ui.input('#weight', '174');
-      ui.input('#paint-seed', '123'); ui.input('#label-mode', 'fixed'); ui.input('#paint-label', 'Practice round');
+      ui.input('#mold-search', 'Buzzz'); ui.input('#plastic', 'ESP'); ui.input('#weight', '174');
+      ui.input('#paint-seed', '123'); ui.input('#customize-label', true); ui.input('#paint-label', 'Practice round');
       return { checks: [{ name: 'Preview has not saved a Disc', pass: experience.shelf().length === 0 }], refs: [experience.shelfAddress] };
     } },
     { name: 'Click Save and inspect the Disc, recipe and actual render inputs', async run() {

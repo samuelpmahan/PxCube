@@ -2,6 +2,7 @@ import { initialDraft, seeds, flightFields, type Draft, type Depiction, type cre
 import { plasticGuides } from './plastics.ts';
 import { createDiscView } from './disc-view.ts';
 import { recipeFromDraft, validatePaintRecipe, renderDepiction } from './paint-recipe.ts';
+import { fuzzyMoldOptions } from './mold-search.ts';
 
 // No store, persistence, sibling view or app boot is created by importing this module.
 export async function mountUpload({ root, experience, onSaved = (_address: string) => {}, random = Math.random }: {
@@ -15,13 +16,34 @@ let painting = depiction, photo: Depiction | null = null;
 function resetPaintSeed() { input('paint-seed').value = String(recipeFromDraft(initialDraft(), painting).seed); }
 function recipe(material: Draft) {
   if (!input('paint-seed').value.trim()) throw Error('Enter a painting seed.');
-  return validatePaintRecipe({ ...recipeFromDraft(material, painting), seed: Number(input('paint-seed').value), label: input('label-mode').value === 'live' ? null : input('paint-label').value });
+  return validatePaintRecipe({ ...recipeFromDraft(material, painting), seed: Number(input('paint-seed').value), label: input('customize-label').checked ? input('paint-label').value : null });
 }
 let photoBusy = false;
 const defaults = initialDraft();
+type SeedOption = ReturnType<typeof experience.seedOptions>[number];
+const seedLabel = ({ seed }: SeedOption) => `${seed.manufacturer} · ${seed.name}`;
+let availableSeeds: SeedOption[] = [], visibleSeeds: SeedOption[] = [], activeSeed = -1;
+function eligibleSeeds() { return experience.seedOptions(); }
+function closeSeedChoices() {
+  $('mold-options').hidden = true; input('mold-search').setAttribute('aria-expanded', 'false'); input('mold-search').removeAttribute('aria-activedescendant'); activeSeed = -1;
+}
+function renderSeedChoices(query = input('mold-search').value) {
+  visibleSeeds = fuzzyMoldOptions(availableSeeds, query, seedLabel);
+  $('mold-options').replaceChildren(...visibleSeeds.map((row, index) => {
+    const option = document.createElement('div'); option.id = `mold-option-${index}`; option.setAttribute('role', 'option'); option.setAttribute('aria-selected', 'false'); option.textContent = seedLabel(row);
+    option.addEventListener('pointerdown', event => { event.preventDefault(); chooseSeed(row); }); return option;
+  }));
+  $('mold-options').hidden = visibleSeeds.length === 0; input('mold-search').setAttribute('aria-expanded', String(visibleSeeds.length > 0)); activeSeed = -1;
+}
+function chooseSeed(row: SeedOption) {
+  input('seed').value = row.address; input('mold-search').value = seedLabel(row); closeSeedChoices(); suggestPlastics(); preview();
+  reviewIndex = experience.seedOptions().findIndex(option => option.address === row.address); showReview();
+}
 function seedChoices(preferred = input('seed').value) {
-  $('seed').replaceChildren(...experience.seedOptions().map(({ address, seed }) => { const option = document.createElement('option'); option.value = address; option.textContent = `${seed.manufacturer} · ${seed.name}`; return option; }));
-  if (experience.seedOptions().some(row => row.address === preferred)) input('seed').value = preferred;
+  availableSeeds = eligibleSeeds();
+  const selected = availableSeeds.find(row => row.address === preferred) ?? availableSeeds[0];
+  if (!selected) throw Error('No demo molds have supported plastic choices.');
+  input('seed').value = selected.address; input('mold-search').value = seedLabel(selected); closeSeedChoices();
 }
 seedChoices(defaults.mold);
 const overrides = document.createElement('details');
@@ -38,7 +60,8 @@ function preview() {
   $('depiction-name').textContent = depiction.name.replaceAll('-', ' ');
   input('color-painting').disabled = depiction.kind === 'photo';
   $('paint-help').textContent = depiction.kind === 'photo' ? 'Photos stay untouched; mode changes the backing only.' : '50/50 swaps palettes across the disc. Halo blends center into rim.';
-  input('paint-label').disabled = input('label-mode').value === 'live';
+  const customizeLabel = input('customize-label').checked;
+  $('paint-label-controls').hidden = !customizeLabel; input('customize-label').setAttribute('aria-expanded', String(customizeLabel));
   (input('depiction-choice') as unknown as HTMLSelectElement).querySelector<HTMLOptionElement>('option[value="photo"]')!.disabled = !photo;
   input('depiction-choice').value = depiction.kind;
   const art = renderDepiction({ recipe: recipe(material), photo, choice: depiction.kind, seed: experience.seedAt(material.mold) });
@@ -49,11 +72,33 @@ $('composer').addEventListener('input', event => { if (event.target !== $('depic
 function suggestPlastics() {
   const seed = experience.seedAt(input('seed').value);
   const guide = plasticGuides[seed.manufacturer] ?? { values: [], source: '' };
-  $('plastics').replaceChildren(...guide.values.map(value => { const option = document.createElement('option'); option.value = value; return option; }));
+  const preferred = input('plastic').value;
+  const unavailable = guide.values.length === 0;
+  input('plastic').replaceChildren(...['', ...guide.values].map(value => { const option = document.createElement('option'); option.value = value; option.textContent = value || (unavailable ? `Plastics not loaded for ${seed.manufacturer}` : 'Choose plastic'); return option; }));
+  input('plastic').value = guide.values.includes(preferred) ? preferred : '';
+  input('plastic').disabled = unavailable; input('save').disabled = unavailable;
   const link = $('plastic-source') as HTMLAnchorElement; link.href = guide.source; link.textContent = `${seed.manufacturer} plastic guide`; link.hidden = !guide.source;
-  input('plastic').placeholder = guide.values.slice(0, 3).join(', ') + '…';
 }
-$('seed').addEventListener('change', suggestPlastics);
+input('mold-search').addEventListener('focus', () => renderSeedChoices(''));
+input('mold-search').addEventListener('input', () => {
+  input('seed').value = '';
+  const exact = availableSeeds.find(row => [row.seed.name, seedLabel(row)].some(value => value.toLocaleLowerCase() === input('mold-search').value.trim().toLocaleLowerCase()));
+  if (exact) chooseSeed(exact); else renderSeedChoices();
+});
+input('mold-search').addEventListener('keydown', event => {
+  if (event.key === 'Escape') { closeSeedChoices(); return; }
+  if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) return;
+  if (!visibleSeeds.length) return;
+  if (event.key === 'Enter' && activeSeed < 0 && visibleSeeds.length === 1) activeSeed = 0;
+  else if (event.key === 'ArrowDown') activeSeed = (activeSeed + 1) % visibleSeeds.length;
+  else if (event.key === 'ArrowUp') activeSeed = (activeSeed - 1 + visibleSeeds.length) % visibleSeeds.length;
+  if (event.key === 'Enter' && activeSeed >= 0) { event.preventDefault(); chooseSeed(visibleSeeds[activeSeed]); return; }
+  if (activeSeed >= 0) {
+    event.preventDefault(); root.querySelectorAll<HTMLElement>('#mold-options [role="option"]').forEach((option, index) => option.setAttribute('aria-selected', String(index === activeSeed)));
+    input('mold-search').setAttribute('aria-activedescendant', `mold-option-${activeSeed}`);
+  }
+});
+input('mold-search').addEventListener('blur', () => { setTimeout(() => { if (!input('seed').value) $('status').textContent = 'Choose a mold from the suggestions.'; closeSeedChoices(); }); });
 $('shuffle').addEventListener('click', async () => { painting = await experience.selectPainting(random); depiction = painting; resetPaintSeed(); preview(); });
 $('depiction-choice').addEventListener('change', () => { depiction = input('depiction-choice').value === 'photo' && photo ? photo : painting; preview(); });
 $('photo').addEventListener('change', async () => {
@@ -68,7 +113,7 @@ $('photo').addEventListener('change', async () => {
     photo = { kind: 'photo', name: file.name, src: canvas.toDataURL('image/webp', .86) }; depiction = photo;
     $('status').textContent = 'Photo prepared locally. The original file is unchanged.'; preview();
   } catch (error) { $('status').textContent = String(error); }
-  finally { photoBusy = false; input('save').disabled = false; input('shuffle').disabled = false; }
+  finally { photoBusy = false; input('save').disabled = input('plastic').disabled; input('shuffle').disabled = false; }
 });
 $('composer').addEventListener('submit', async event => {
   event.preventDefault(); if (photoBusy || input('save').disabled) return;
@@ -80,9 +125,9 @@ $('composer').addEventListener('submit', async event => {
     input('nickname').value = ''; input('photo').value = '';
     for (const field of flightFields) { input(`own-${field}`).checked = false; input(`disc-${field}`).value = ''; input(`disc-${field}`).disabled = true; }
     painting = await experience.selectPainting(random); depiction = painting; photo = null;
-    input('label-mode').value = 'live'; input('paint-label').value = ''; resetPaintSeed(); preview();
+    input('customize-label').checked = false; input('paint-label').value = ''; resetPaintSeed(); preview();
   } catch (error) { $('status').textContent = `Not saved: ${String(error)}`; }
-  finally { input('save').disabled = false; }
+  finally { input('save').disabled = input('plastic').disabled; }
 });
 input('Color1').value = defaults.Color1; input('Color2').value = defaults.Color2; resetPaintSeed(); suggestPlastics(); preview();
 let reviewIndex = experience.seedOptions().findIndex(row => row.address === input('seed').value);
@@ -115,7 +160,6 @@ $('review-yes').addEventListener('click', () => review('confirmed'));
 $('review-no').addEventListener('click', () => { reviewFields.forEach(field => { input(`review-${field}`).readOnly = false; }); $('review-apply').hidden = false; input('review-yes').disabled = true; input('review-no').disabled = true; input('review-speed').focus(); });
 $('seed-review').addEventListener('submit', event => { event.preventDefault(); review('corrected'); });
 showReview();
-$('seed').addEventListener('change', () => { reviewIndex = experience.seedOptions().findIndex(row => row.address === input('seed').value); showReview(); });
 ['speed', 'glide', 'turn', 'fade'].forEach(field => { input(`review-${field}`).required = false; input(`review-${field}`).placeholder = 'Unknown'; });
 
 return { refresh: preview };

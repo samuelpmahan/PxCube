@@ -8,6 +8,25 @@ const results = new Map(state.results.map(r => [r.id, r]));
 const packaged = new Set(state.packagedIds);
 const retainedFrames = new Map();
 let activeId = null, view = 'experiences';
+const CONTROL_DRAWER_KEY = 'pxcube.controlDrawer.collapsed.v1';
+let controlDrawerPreference = null;
+try {
+  const saved = localStorage.getItem(CONTROL_DRAWER_KEY);
+  if (saved !== null) controlDrawerPreference = saved === 'true';
+} catch { /* Storage can be unavailable in hardened or embedded browsers. */ }
+
+function setControlDrawerCollapsed(collapsed, { remember = true } = {}) {
+  const isCollapsed = Boolean(collapsed);
+  document.body.classList.toggle('controls-collapsed', isCollapsed);
+  const toggle = $('control-drawer-toggle');
+  toggle.setAttribute('aria-expanded', String(!isCollapsed));
+  toggle.setAttribute('aria-label', isCollapsed ? 'Show workspace controls' : 'Hide workspace controls');
+  toggle.querySelector('.drawer-label').textContent = isCollapsed ? 'Controls' : 'Hide controls';
+  if (!remember) return;
+  controlDrawerPreference = isCollapsed;
+  try { localStorage.setItem(CONTROL_DRAWER_KEY, String(isCollapsed)); } catch { /* Keep the in-memory choice. */ }
+}
+setControlDrawerCollapsed(controlDrawerPreference ?? false, { remember: false });
 // The shell owns every Experience's PxC boards. Frames on the same page
 // reach the kernel API directly through window.parent.pxc, no messages.
 // Same storage keys as before, so retained browser state loads untouched.
@@ -81,6 +100,9 @@ function openExperience(id) {
   $('frame-count').textContent = `${retainedFrames.size} opened frame${retainedFrames.size === 1 ? '' : 's'}`;
   document.querySelectorAll('.experience-link').forEach(el => el.classList.toggle('current', el.dataset.open === id));
   showView('experience');
+  // Preserve an explicit choice. Otherwise, the first opened Experience gets
+  // the whole viewport while the persistent trigger keeps controls discoverable.
+  if (controlDrawerPreference === null) setControlDrawerCollapsed(true, { remember: false });
 }
 
 // The kernels are the owners now: frames reach them through window.pxc and the
@@ -307,6 +329,13 @@ async function refreshConsole() {
 }
 $('refresh-console').onclick = refreshConsole;
 $('console-filter').oninput = refreshConsole;
+$('control-drawer-toggle').onclick = () => setControlDrawerCollapsed(!document.body.classList.contains('controls-collapsed'));
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !document.body.classList.contains('controls-collapsed') && !$('inspector').open) {
+    setControlDrawerCollapsed(true);
+    $('control-drawer-toggle').focus();
+  }
+});
 $('artifact-id').textContent = state.runId?.split('T')[1]?.replace(/Z-.*/, 'Z') ?? 'not recorded';
 $('artifact-id').title = state.runId ?? '';
 $('source-id').textContent = short(state.sourceCommit);
@@ -359,6 +388,6 @@ async function checkBuild() {
   } catch { /* Static artifacts can be inspected offline. */ }
 }
 $('refresh-build').onclick = () => location.reload();
-window.pxCubeControl = Object.freeze({ inspect: () => ({ artifact: state.runId, view, activeId, frames: [...retainedFrames.keys()] }) });
+window.pxCubeControl = Object.freeze({ inspect: () => ({ artifact: state.runId, view, activeId, frames: [...retainedFrames.keys()], controlsCollapsed: document.body.classList.contains('controls-collapsed') }) });
 checkBuild(); setInterval(checkBuild, 5000);
 setInterval(() => { refreshMounts(); refreshConsole(); }, 2000);

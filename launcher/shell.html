@@ -3,6 +3,9 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PxCube · NTC workspace</title><link rel="stylesheet" href="./shell.css"></head>
 <body>
   <header id="control-header">
+    <button id="control-drawer-toggle" type="button" aria-expanded="true" aria-controls="control-header navigation ntc-strip bar" aria-label="Hide workspace controls">
+      <span class="drawer-icon" aria-hidden="true">&#9776;</span><span class="drawer-label">Hide controls</span>
+    </button>
     <button class="brand" data-view="experiences">PxCube <span>NTC workspace</span></button>
     <div class="identity"><span>Artifact</span> <code id="artifact-id">—</code><span>HEAD</span> <code id="source-id">—</code></div>
     <button id="refresh-build" hidden>New build ready · reload</button>
