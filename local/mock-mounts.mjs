@@ -1,4 +1,5 @@
 import { worlds, resolveWorldValue, NAMESPACES } from '../mock-pxc/mock-pxc.mjs';
+import { scenarioFor, scenarioWorld, fixtureHash } from './scenarios.mjs';
 
 const clone = value => structuredClone(value);
 const validId = id => typeof id === 'string' && /^[A-Za-z][A-Za-z0-9_-]*$/.test(id);
@@ -50,9 +51,9 @@ export function createMockMounts({ storage, key, seedIdentity }) {
   function validateSeed(id, world) {
     if (!validId(id) || !Object.hasOwn(worlds, world)) throw Error('Known world and simple sandbox id required');
   }
-  function allocate({name, id, world, kind, iteration, replayOf}) {
+  function allocate({name, id, world, kind, iteration, replayOf, scenario, sourceSurface}) {
     const next = clone(state);
-    next.runs[name] = { name, id, kind, ...(iteration === undefined ? {} : {iteration}), ...(replayOf === undefined ? {} : {replayOf}), world, seedIdentity, seed: clone(worlds[world]), value: clone(worlds[world]), changes: [] };
+    next.runs[name] = { name, id, kind, ...(iteration === undefined ? {} : {iteration}), ...(replayOf === undefined ? {} : {replayOf}), world, seedIdentity, ...(scenario ? {scenario,scenarioId:scenario,adapterVersion:1,fixtureHash:fixtureHash(world,scenario),sourceSurface:sourceSurface??world} : {}), seed: clone(scenarioWorld(worlds[world],scenario)), value: clone(scenarioWorld(worlds[world],scenario)), changes: [] };
     commit(next); return handle(name);
   }
   return Object.freeze({
@@ -68,9 +69,10 @@ export function createMockMounts({ storage, key, seedIdentity }) {
     },
     createTestRun(id, world = 'shelf', opts = {}) {
       validateSeed(id, world);
+      if (opts.scenario !== undefined && !scenarioFor(opts.scenario)) throw Error(`Unknown scenario: ${opts.scenario}`);
       const iteration = Math.max(0, ...Object.values(state.runs).filter(run => run.id === id && Number.isSafeInteger(run.iteration)).map(run => run.iteration)) + 1;
       if (!Number.isSafeInteger(iteration)) throw Error(`Test iterator exhausted for ${id}`);
-      return allocate({name:`mock.${id}.${iteration}`, id, world, kind: opts.kind ?? 'test', iteration, replayOf: opts.replayOf});
+      return allocate({name:`mock.${id}.${iteration}`, id, world, scenario:opts.scenario, sourceSurface:opts.sourceSurface, kind: opts.kind ?? 'test', iteration, replayOf: opts.replayOf});
     },
     // Run records live in MockPxC, next to the runs they describe. A replay
     // never writes here; it performs in its own distinct sandbox.
@@ -83,7 +85,7 @@ export function createMockMounts({ storage, key, seedIdentity }) {
     },
     handle,
     // Earlier snapshots did not record purpose; retain them without inventing it.
-    list: () => Object.values(state.runs).map(({ name, id, kind, iteration, world, seedIdentity, replayOf }) => ({name,id,kind:kind ?? 'legacy',iteration,world,seedIdentity,...(replayOf === undefined ? {} : {replayOf})})),
+    list: () => Object.values(state.runs).map(({ name, id, kind, iteration, world, seedIdentity, replayOf, scenarioId, adapterVersion, fixtureHash, sourceSurface }) => ({name,id,kind:kind ?? 'legacy',iteration,world,seedIdentity,...(replayOf === undefined ? {} : {replayOf}),...(scenarioId ? {scenarioId,adapterVersion,fixtureHash,sourceSurface} : {})})),
     inspect: () => clone(state),
   });
 }

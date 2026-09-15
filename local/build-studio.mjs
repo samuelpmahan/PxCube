@@ -48,7 +48,7 @@ export function buildStudio(config = JSON.parse(fs.readFileSync('experience.json
     compatibility:{status:'legacy adapter; not full MockPxC integration', internalMounts:mounts, uses, persistedPrefixFindings:findPersistedMountPrefixes(files,mounts), crispScope:'Experience host source; this separate report covers the pinned Studio dependency'} };
   write('dist/studio-import.json',JSON.stringify(report,null,2)+'\n');
   for (const file of ['index.html','host.mjs','style.css','live.mjs']) fs.copyFileSync(path.join(adapter,file),`dist/${file}`);
-  for (const file of ['mock-mounts.mjs','experience-mount.mjs']) write(`dist/local/${file}`,fs.readFileSync(`../../local/${file}`));
+  for (const file of ['mock-mounts.mjs','experience-mount.mjs','scenarios.mjs']) write(`dist/local/${file}`,fs.readFileSync(`../../local/${file}`));
   write('dist/mock-pxc/mock-pxc.mjs',fs.readFileSync('../../mock-pxc/mock-pxc.mjs'));
   write('dist/config.mjs',`export default ${JSON.stringify({id:config.id,title:config.title,mode:config.studio.mode,source:source.commit})};\n`);
 }

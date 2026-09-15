@@ -1,6 +1,7 @@
 import config from './config.mjs';
 import { createMockMounts } from './local/mock-mounts.mjs';
 import { scopedStorage, localAddress } from './local/experience-mount.mjs';
+import { scenarioFor } from './local/scenarios.mjs';
 
 const $ = id => document.getElementById(id), frames = new Map();
 const storageRoot = `pxcube.studio.v1:${config.id}`;
@@ -22,6 +23,13 @@ function entryFor(source) {
   const entry = [...frames.values()].find(entry=>entry.frame?.contentWindow === source);
   if (!entry) throw Error('The caller does not own a mounted surface.');
   return entry;
+}
+function navigateFromChild(event) {
+  if (event.data?.type !== 'pxcube:your-shelf:navigate' || event.data.surface !== 'upload') return;
+  const entry = entryFor(event.source);
+  if (entry !== current) return;
+  const ownerName = entry.kind === 'scenario' ? owner.openInteractive(config.id,'studio').name : entry.name;
+  open(ownerName,'upload');
 }
 function snapshot(entry) {
   return {schemaVersion:1,mount:entry.name,kind:entry.kind,surface:entry.surface,source:config.source,
@@ -45,13 +53,13 @@ function contextFor(source) {
     ready(bridge) {
       if (entry.bridge) throw Error('A model already owns this surface.');
       entry.bridge=bridge; retain(entry);
-      if (entry === current) $('status').textContent=entry.kind === 'test' ? 'Fresh test fixture · actions stay in this numbered sandbox.' : 'Interactive · saved domain changes stay in this sandbox.';
+      if (entry === current) { const metadata=owner.handle(entry.name).inspect(); $('status').textContent=entry.kind === 'scenario' ? `Scenario · ${metadata.scenarioId} · disposable` : entry.kind === 'test' ? 'Fresh test fixture · actions stay in this numbered sandbox.' : 'Interactive · saved domain changes stay in this sandbox.'; }
     },
   });
 }
 function inspection() { return snapshot(current); }
 function refreshSessions() {
-  $('session').replaceChildren(...owner.list().map(run=>new Option(run.kind === 'interactive' ? 'Interactive · resume' : `Test ${run.iteration} · ${run.name}`,run.name)));
+  $('session').replaceChildren(...owner.list().map(run=>new Option(run.kind === 'interactive' ? 'Interactive · resume' : run.kind === 'scenario' ? `Scenario · ${run.scenarioId} · disposable` : `Test ${run.iteration} · ${run.name}`,run.name)));
   $('session').value=selected;
 }
 function open(name, surface) {
@@ -59,7 +67,8 @@ function open(name, surface) {
   if(record.kind === 'test') surface=record.value.sc.surface.variant;
   if (!surfaces.some(([key])=>key === surface)) throw Error('Unknown Experience surface.');
   if(record.seedIdentity !== config.source) throw Error('This retained mount belongs to a different source; migration needs review. Stored data preserved.');
-  selected=name; $('surface').value=surface; $('surface').disabled=record.kind === 'test';
+  selected=name; $('surface').value=surface; $('surface').disabled=record.kind !== 'interactive';
+  const scenarioMode=surface==='shopping';$('scenario').disabled=!scenarioMode;$('launch-scenario').disabled=!scenarioMode;$('reset-scenario').disabled=!scenarioMode||record.kind!=='scenario';$('return-workspace').disabled=record.kind!=='scenario';
   $('mount').textContent=name+'.*'; refreshSessions();
   const key=`${name}|${surface}`;
   if(!frames.has(key)) {
@@ -77,18 +86,20 @@ function open(name, surface) {
       const frame=document.createElement('iframe');frame.title=`${config.title} · ${name} · ${surface}`;
       frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-downloads allow-modals allow-forms');
       entry.frame=entry.view=frame;
-      frame.src=surface === 'shopping' ? './studio/upload-disc-to-shelf/accepted-shelf.html' : './studio/upload-disc-to-shelf/index.html';
+      const scenario=record.kind==='scenario'&&record.sourceSurface===surface&&scenarioFor(record.scenarioId);const params=scenario?`?scenario=${encodeURIComponent(scenario.id)}&testRun=1&run=${encodeURIComponent(name)}&surface=${encodeURIComponent(surface)}`:'';
+      frame.src=(surface === 'shopping' ? './studio/upload-disc-to-shelf/accepted-shelf.html' : './studio/upload-disc-to-shelf/index.html')+params;
     }
     $('surfaces').append(entry.view);
   }
   current=frames.get(key);for(const entry of frames.values())entry.view.hidden=entry!==current;
   $('boundary').textContent=surface === 'shopping' ? 'Accepted shopping prototype · its actual 50-disc model is inspectable. Live Part integration is available separately under Surface.' : 'Live Studio Parts and composition receipts · the mount resolves into this frame’s own store. Internal Studio names are preserved.';
-  $('status').textContent=current.bridge ? (record.kind === 'interactive' ? 'Interactive · resumed in the same owning context.' : 'Test run · retained in its own context.') : current.observation ? 'Saved test observation · read-only after reload.' : 'Opening owning context…';
+  $('status').textContent=current.bridge ? (record.kind === 'interactive' ? 'Interactive · resumed in the same owning context.' : record.kind === 'scenario' ? `Scenario · ${record.scenarioId} · disposable` : 'Test run · retained in its own context.') : current.observation ? 'Saved test observation · read-only after reload.' : 'Opening owning context…';
 }
 window.pxCubeExperience=Object.freeze({contextFor,inspect:inspection,list:()=>owner.list(),
   resolve(address) { if(!current.bridge) throw Error('Only saved observations are available; no live model to resolve.');localAddress(current.name,address);return current.bridge.resolve(address); },
   current:()=>({name:current.name,surface:current.surface,kind:current.kind}),
 });
+window.addEventListener('message',guarded(navigateFromChild));
 $('title').textContent=config.title;document.title=config.title+' · sandbox';
 $('sandbox-drawer-toggle').onclick=()=>setDrawerCollapsed(!$('sandbox-drawer').hidden);
 document.addEventListener('keydown',event=>{
@@ -107,6 +118,13 @@ $('new-test').onclick=guarded(()=>{
   run.writeScratch('sc.surface',{variant:$('surface').value});
   open(run.name,$('surface').value);
 });
+$('launch-scenario').onclick=guarded(()=>{
+  const run=owner.createTestRun(config.id,'studio',{scenario:$('scenario').value,sourceSurface:$('surface').value,kind:'scenario'});
+  run.writeScratch('sc.surface',{variant:$('surface').value});
+  open(run.name,$('surface').value);
+});
+$('reset-scenario').onclick=guarded(()=>{$('launch-scenario').click();});
+$('return-workspace').onclick=guarded(()=>{open(owner.openInteractive(config.id,'studio').name,surfaces[0][0]);});
 $('inspect').onclick=guarded(()=>{
   $('values').textContent=pretty(inspection());$('resolved').textContent='';
   $('inspection-kind').textContent=current.bridge ? 'Live inspection — reads the model in the visible surface.' : 'Saved observation — the original execution context is no longer running.';
