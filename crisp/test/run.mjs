@@ -218,6 +218,69 @@ function sha256File(path) {
     firstReceipt.entryChunk !== secondReceipt.entryChunk);
 }
 
+// 12. Kustomize-style composition: base + patches resolve, package, and record
+{
+  const dir = freshFixture('compose');
+  const overlay = join(dir, 'overlay');
+  const r = await runCrisp(['resolve', overlay], overlay);
+  check('compose/resolve exit 0', r.code === 0, `exit ${r.code}: ${r.stderr}`);
+  const manifest = JSON.parse(r.stdout);
+  check('compose/overlay title wins', manifest.title === 'Overlay Game', manifest.title);
+  check('compose/inherits base entry and mounts',
+    manifest.entry === 'index.html' && Array.isArray(manifest.mounts) && manifest.mounts.length === 0,
+    JSON.stringify({ entry: manifest.entry, mounts: manifest.mounts }));
+  check('compose/patch applied (sandbox, version)',
+    JSON.stringify(manifest.sandbox) === JSON.stringify(['allow-scripts', 'allow-same-origin']) && manifest.version === '0.2.0',
+    JSON.stringify({ sandbox: manifest.sandbox, version: manifest.version }));
+  check('compose/resolved manifest records composition',
+    manifest.composition?.base === 'base' && manifest.composition.patches.length === 1,
+    JSON.stringify(manifest.composition));
+  check('compose/base and patches are directives, not manifest fields',
+    manifest.base === undefined && manifest.patches === undefined);
+
+  const p = await runCrisp(['package', overlay], overlay);
+  check('compose/package exit 0', p.code === 0, `exit ${p.code}: ${p.stderr}`);
+  const receipt = readJson(join(overlay, '.crisp', 'receipt.json'));
+  const paths = (receipt.chunks || []).map((c) => c.path).sort();
+  check('compose/chunks are the base+overlay union',
+    JSON.stringify(paths) === JSON.stringify(['index.html', 'rom.js', 'shell.js']), paths.join(','));
+  check('compose/overlay wins path conflicts',
+    readFileSync(join(overlay, 'dist', 'shell.js'), 'utf8').includes('shadows the base shell'),
+    readFileSync(join(overlay, 'dist', 'shell.js'), 'utf8').trim());
+  check('compose/receipt records the composition',
+    receipt.composition?.base === 'base' &&
+    (receipt.composition.baseChunks || []).length === 2 &&
+    (receipt.composition.overridden || []).includes('shell.js'),
+    JSON.stringify(receipt.composition));
+  const rematch = (receipt.chunks || []).every((c) => sha256File(join(overlay, 'dist', c.path)) === c.sha256);
+  check('compose/chunk hashes match built bytes', rematch);
+}
+
+// 13. base cycles are refused, not looped
+{
+  const dir = freshDir();
+  for (const [name, base] of [['a', 'b'], ['b', 'a']]) {
+    mkdirSync(join(dir, name), { recursive: true });
+    writeFileSync(join(dir, name, 'experience.json'), JSON.stringify({
+      title: name, base, build: 'mkdir -p dist && touch dist/x', outDir: 'dist', mounts: [],
+    }));
+  }
+  const r = await runCrisp(['resolve', join(dir, 'a')], dir);
+  check('compose-cycle/resolve exit 1', r.code === 1, `exit ${r.code}: ${r.stderr}`);
+  check('compose-cycle/stderr names the cycle', /cycle/.test(r.stderr), r.stderr.trim());
+}
+
+// 14. a missing base is refused with its name
+{
+  const dir = freshDir();
+  mkdirSync(join(dir, 'lonely'), { recursive: true });
+  writeFileSync(join(dir, 'lonely', 'experience.json'), JSON.stringify({
+    title: 'Lonely', base: 'nope', build: 'mkdir -p dist && touch dist/x', outDir: 'dist', mounts: [],
+  }));
+  const r = await runCrisp(['resolve', join(dir, 'lonely')], dir);
+  check('compose-missing/resolve exit 1', r.code === 1, `exit ${r.code}: ${r.stderr}`);
+}
+
 process.stdout.write(`\n${passed} passed, ${failed} failed\n`);
 if (failed > 0) {
   process.stdout.write(`failed: ${failures.join(', ')}\n`);

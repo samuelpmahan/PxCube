@@ -49,23 +49,25 @@ try {
     assert.equal(Object.hasOwn(initial.runs['mock.build-bag'].value.px, 'bags'), false);
     await frame.locator('#draft-name').fill('My fairway bag');
     await frame.getByRole('button', { name: 'Save draft' }).click();
+    await frame.locator('#status').filter({ hasText: 'Draft saved' }).waitFor();
     const saved = (await inspect()).runs['mock.build-bag'];
     assert.equal(saved.value.sc.draft.name, 'My fairway bag');
     assert.equal(saved.changes[0].address, 'sc.draft');
     await frame.locator('#new-test').click();
-    assert.equal(await frame.locator('#mount-name').textContent(), 'mock.build-bag.1');
+    await frame.locator('#mount-name').filter({ hasText: 'mock.build-bag.1' }).waitFor();
     assert.equal(await frame.locator('#draft-name').inputValue(), 'Untitled bag');
     await frame.locator('#draft-name').fill('Only test one');
     await frame.getByRole('button', { name: 'Save draft' }).click();
+    await frame.locator('#status').filter({ hasText: 'Draft saved' }).waitFor();
     await frame.locator('#new-test').click();
-    assert.equal(await frame.locator('#mount-name').textContent(), 'mock.build-bag.2');
+    await frame.locator('#mount-name').filter({ hasText: 'mock.build-bag.2' }).waitFor();
     assert.equal(await frame.locator('#draft-name').inputValue(), 'Untitled bag');
     await frame.locator('#interactive').click();
-    assert.equal(await frame.locator('#draft-name').inputValue(), 'My fairway bag');
+    await frame.waitForFunction(() => document.getElementById('draft-name').value === 'My fairway bag');
     const retained = await inspect();
     assert.deepEqual(retained.runs['mock.build-bag'], saved);
     assert.equal(retained.runs['mock.build-bag.1'].value.sc.draft.name, 'Only test one');
-    assert.equal(await page.locator('#thing').evaluate(el => { try { el.contentWindow.pxCubeScaffold.resolve('mock.build-bag.1.sc.draft'); return false; } catch { return true; } }), true);
+    await assert.rejects(page.locator('#thing').evaluate(el => el.contentWindow.pxCubeScaffold.resolve('mock.build-bag.1.sc.draft')), /outside/);
     await page.locator('#back').click(); await page.locator('button.card[data-id="build-bag"]').click();
     assert.deepEqual(await inspect(), retained);
     await page.reload(); await page.locator('[data-tab="exp"]').click(); await page.locator('button.card[data-id="build-bag"]').click();
@@ -85,11 +87,16 @@ try {
     checks.push({ prefix, checks: ['CLI generated an absent app', 'launcher discovers the generated scaffold', 'inputs and address labels read the mounted seed', 'draft writes actual scratch history', 'fresh numbered tests preserve interactive and sibling values', 'resolver refuses sibling access', 'Back and reload retain values', 'existing Studio archive untouched', 'planned bag output absent', 'receipt names tidy manifest input'] });
     await context.close();
   }
+  // Storage now lives in the shell: the kernel's commit throws there and the
+  // failure crosses the frame boundary to the Experience's status.
   const denied = await browser.newPage();
   await denied.addInitScript(() => { Storage.prototype.setItem = () => { throw Error('quota exhausted'); }; });
-  await denied.goto(origin + '/experiences/build-bag/index.html');
-  await denied.locator('#status').filter({ hasText: 'Stopped: quota exhausted' }).waitFor();
-  assert.equal(await denied.locator('#new-test').isDisabled(), true);
+  await denied.goto(origin + '/');
+  await denied.locator('[data-tab="exp"]').click();
+  await denied.locator('button.card[data-id="build-bag"]').click();
+  const deniedFrame = denied.frameLocator('#thing');
+  await deniedFrame.locator('#status').filter({ hasText: 'Stopped: quota exhausted' }).waitFor();
+  assert.equal(await deniedFrame.locator('#new-test').isDisabled(), true);
   checks.push({ mode: 'storage-failure', checks: ['failed retention is visible and controls stop'] });
   assert.deepEqual(errors, []);
   assert.ok(requests.every(r => r.url.startsWith(origin + '/') && r.method === 'GET'));

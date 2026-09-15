@@ -7,8 +7,10 @@ const validId = id => typeof id === 'string' && /^[A-Za-z][A-Za-z0-9_-]*$/.test(
 // the browser uses localStorage; tests use memory. Failure to retain is loud.
 export function createMockMounts({ storage, key, seedIdentity }) {
   const raw = storage.getItem(key);
-  let state = raw ? JSON.parse(raw) : { schemaVersion: 1, revision: 0, runs: {} };
+  let state = raw ? JSON.parse(raw) : { schemaVersion: 1, revision: 0, runs: {}, results: [] };
   if (state.schemaVersion !== 1 || !state.runs || Array.isArray(state.runs)) throw Error('Unsupported retained mock state');
+  // results arrived after schemaVersion 1; earlier retained states simply have none.
+  if (!Array.isArray(state.results)) state.results = [];
   let knownRaw = raw;
   function commit(next) {
     if (storage.getItem(key) !== knownRaw) throw Error('Another owner changed these mounts. Reload to inspect its state.');
@@ -48,9 +50,9 @@ export function createMockMounts({ storage, key, seedIdentity }) {
   function validateSeed(id, world) {
     if (!validId(id) || !Object.hasOwn(worlds, world)) throw Error('Known world and simple sandbox id required');
   }
-  function allocate({name, id, world, kind, iteration}) {
+  function allocate({name, id, world, kind, iteration, replayOf}) {
     const next = clone(state);
-    next.runs[name] = { name, id, kind, ...(iteration === undefined ? {} : {iteration}), world, seedIdentity, seed: clone(worlds[world]), value: clone(worlds[world]), changes: [] };
+    next.runs[name] = { name, id, kind, ...(iteration === undefined ? {} : {iteration}), ...(replayOf === undefined ? {} : {replayOf}), world, seedIdentity, seed: clone(worlds[world]), value: clone(worlds[world]), changes: [] };
     commit(next); return handle(name);
   }
   return Object.freeze({
@@ -64,15 +66,24 @@ export function createMockMounts({ storage, key, seedIdentity }) {
       }
       return allocate({name, id, world, kind:'interactive'});
     },
-    createTestRun(id, world = 'shelf') {
+    createTestRun(id, world = 'shelf', opts = {}) {
       validateSeed(id, world);
       const iteration = Math.max(0, ...Object.values(state.runs).filter(run => run.id === id && Number.isSafeInteger(run.iteration)).map(run => run.iteration)) + 1;
       if (!Number.isSafeInteger(iteration)) throw Error(`Test iterator exhausted for ${id}`);
-      return allocate({name:`mock.${id}.${iteration}`, id, world, kind:'test', iteration});
+      return allocate({name:`mock.${id}.${iteration}`, id, world, kind: opts.kind ?? 'test', iteration, replayOf: opts.replayOf});
+    },
+    // Run records live in MockPxC, next to the runs they describe. A replay
+    // never writes here; it performs in its own distinct sandbox.
+    recordResult(result) {
+      const { testFile, testName, ok } = result ?? {};
+      if (typeof testFile !== 'string' || typeof testName !== 'string' || typeof ok !== 'boolean') throw Error('recordResult needs {testFile, testName, ok}');
+      const next = clone(state);
+      next.results.push({ testFile, testName, ok, error: result.error ?? null, ranAt: new Date().toISOString(), runs: Object.keys(next.runs) });
+      commit(next);
     },
     handle,
     // Earlier snapshots did not record purpose; retain them without inventing it.
-    list: () => Object.values(state.runs).map(({ name, id, kind, iteration, world, seedIdentity }) => ({name,id,kind:kind ?? 'legacy',iteration,world,seedIdentity})),
+    list: () => Object.values(state.runs).map(({ name, id, kind, iteration, world, seedIdentity, replayOf }) => ({name,id,kind:kind ?? 'legacy',iteration,world,seedIdentity,...(replayOf === undefined ? {} : {replayOf})})),
     inspect: () => clone(state),
   });
 }

@@ -23,7 +23,7 @@
     "mock-smoke": {
       "track": "exp",
       "manifest": {
-        "title": "MockPxC · retained worlds",
+        "title": "MockPxC \u00b7 retained worlds",
         "description": "Edit a bag name in one seeded mount. Inspect its value, open another iteration, and compare what stayed put.",
         "version": "0.1.0",
         "track": "exp",
@@ -232,6 +232,52 @@
       "sourceHash": "cb04949cc80e55b6fe26ad4457f4b171b35db47483dccde43a65e7b273a0a983",
       "sharedToolsHash": "94abd58aa43b87a7a8bf9d6d7f47c1e24eed0b562d1f067a6ac62b2772a6a307",
       "registeredAt": "2026-09-15T02:21:46.965Z"
+    },
+    "gameboy": {
+      "track": "exp",
+      "manifest": {
+        "build": "mkdir -p dist && cp index.html player.js rom.js dist/",
+        "description": "Base cartridge: 160x144 console, d-pad plus buttons, save RAM, offline. Overlays supply the ROM.",
+        "entry": "index.html",
+        "mounts": [],
+        "outDir": "dist",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin"
+        ],
+        "storage": "localStorage: save RAM, namespaced pxcube:cartridge:<game>:<key>. Trusted same-origin demonstration; not a hostile-code boundary.",
+        "title": "Game Boy cartridge",
+        "track": "exp",
+        "version": "0.1.0"
+      },
+      "sourceHash": "3f0aefa0d790b91fc094491446e8014d66c443f4c19e22ebcf70c1fd00c37cb5",
+      "sharedToolsHash": "e2e91a7ae072669ddab566950353e2af75325722d67e4a5f9e616a482aa5740c",
+      "registeredAt": "2026-09-15T02:42:28.090Z"
+    },
+    "snake": {
+      "track": "exp",
+      "manifest": {
+        "build": "mkdir -p dist && cp rom.js dist/",
+        "description": "Snake on the Game Boy cartridge base: steer with the d-pad, eat, survive. High score lives in save RAM.",
+        "entry": "index.html",
+        "mounts": [],
+        "outDir": "dist",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin"
+        ],
+        "storage": "localStorage: save RAM, namespaced pxcube:cartridge:<game>:<key>. Trusted same-origin demonstration; not a hostile-code boundary.",
+        "title": "Snake",
+        "track": "exp",
+        "version": "0.1.0",
+        "composition": {
+          "base": "gameboy",
+          "patches": []
+        }
+      },
+      "sourceHash": "b35cf3af3f6f4770733348afea7a3e1b518a21841925325a211e025cbd260f13",
+      "sharedToolsHash": "e2e91a7ae072669ddab566950353e2af75325722d67e4a5f9e616a482aa5740c",
+      "registeredAt": "2026-09-15T02:42:28.245Z"
     }
   }
 }

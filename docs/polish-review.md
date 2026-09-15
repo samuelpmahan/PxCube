@@ -35,6 +35,13 @@ corner size over footage.
 
 ## What is proved and what is still a finding
 
+Main through `c9d446c` is integrated without replacing the published local branch
+history. Both the Studio consumers and Main's console/cartridge work are retained.
+The new console artifact checks belong in `local/test/e2e/`, after site assembly;
+they previously read an absent or stale `dist/` during the pre-build unit stage.
+The BuildBag assembled-model test now targets the implemented consumer. Generic
+scaffold coverage continues to generate and exercise the scaffold independently.
+
 `node --test local/test/demo-experiences.test.mjs` packages its own fresh test
 tree. It checks the shared renderer, source identity, old captures, queue order,
 duplicate images, storage reload, and turn/points/size/color changes.

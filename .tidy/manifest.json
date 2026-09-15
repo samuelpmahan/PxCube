@@ -121,6 +121,20 @@
         },
         "track": "exp"
       }
+    },
+    "pxcube-gameboy": {
+      "version": "0.1.0",
+      "root": "experiences/gameboy",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
+    },
+    "pxcube-snake": {
+      "version": "0.1.0",
+      "root": "experiences/snake",
+      "clean": "clean",
+      "experiments": "exp",
+      "tests": []
     }
   }
 }

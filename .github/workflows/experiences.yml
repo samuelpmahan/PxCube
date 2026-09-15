@@ -123,6 +123,8 @@ jobs:
         run: node local/test/ntc-browser.mjs
       - name: same packaging program as local preview
         run: node local/ci.mjs
+      - name: E2E the five experiences against MockPxC, no browser
+        run: node --test "local/test/e2e/*.test.mjs"
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:

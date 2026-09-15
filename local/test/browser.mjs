@@ -33,15 +33,18 @@ try {
   const frame=page.frameLocator('#thing');await frame.locator('article[data-mount="mock.shelf"]').waitFor();
   await frame.locator('article[data-mount="mock.shelf"] input').fill('Morning practice');
   await frame.locator('article[data-mount="mock.shelf"] button').click();
+  await frame.locator('#status').filter({hasText:'Saved in mock.shelf. Other'}).waitFor();
   const working=await page.locator('#thing').evaluate(element=>element.contentWindow.pxCubeMocks.inspect());
   await frame.locator('#open-interactive').click();
   assert.deepEqual(await page.locator('#thing').evaluate(element=>element.contentWindow.pxCubeMocks.inspect()),working);
-  await frame.locator('#new-run').click();await frame.locator('#new-run').click();
+  await frame.locator('#new-run').click();await frame.locator('article[data-mount="mock.shelf.1"]').waitFor();
+  await frame.locator('#new-run').click();await frame.locator('article[data-mount="mock.shelf.2"]').waitFor();
   assert.equal(await frame.locator('article[data-mount="mock.shelf"] input').inputValue(),'Morning practice');
   assert.equal(await frame.locator('article[data-mount="mock.shelf.1"] input').inputValue(),'Untitled bag');
   assert.equal(await frame.locator('article[data-mount="mock.shelf.2"] input').inputValue(),'Untitled bag');
   await frame.locator('article[data-mount="mock.shelf.1"] input').fill('Test only');
   await frame.locator('article[data-mount="mock.shelf.1"] button').click();
+  await frame.locator('#status').filter({hasText:'Saved in mock.shelf.1. Other'}).waitFor();
   assert.equal(await frame.locator('article[data-mount="mock.shelf"] input').inputValue(),'Morning practice');
   assert.equal(await frame.locator('article[data-mount="mock.shelf.2"] input').inputValue(),'Untitled bag');
   assert.match(await frame.locator('article[data-mount="mock.shelf"] .eyebrow').textContent(),/Interactive/);
@@ -66,8 +69,13 @@ try {
  await page.screenshot({path:path.join(evidence,'mock-worlds.png'),fullPage:true});
  const denied=await browser.newPage();denied.on('pageerror',error=>errors.push(error.message));
  await denied.addInitScript(()=>{Storage.prototype.setItem=function(){throw new Error('quota exhausted')}});
- await denied.goto('http://127.0.0.1:4321/experiences/mock-smoke/index.html?scope=quota-test');
- await denied.locator('#status').filter({hasText:'Stopped: quota exhausted'}).waitFor();assert.equal(await denied.locator('#new-run').isDisabled(),true);
+ // Storage lives in the shell now: the kernel's commit throws there and the
+ // failure crosses the frame boundary to the Experience's status.
+ await denied.goto('http://127.0.0.1:4321/');
+ await denied.locator('[data-tab="exp"]').click();
+ await denied.locator('button.card[data-id="mock-smoke"]').click();
+ const deniedFrame=denied.frameLocator('#thing');
+ await deniedFrame.locator('#status').filter({hasText:'Stopped: quota exhausted'}).waitFor();assert.equal(await deniedFrame.locator('#new-run').isDisabled(),true);
  checks.push({mode:'storage-failure',checks:['initial storage failure is visible and creation stops']});await denied.close();
  assert.deepEqual(errors,[]);
  fs.writeFileSync(path.join(evidence,'browser-results.json'),JSON.stringify({checks,errors},null,2)+'\n');

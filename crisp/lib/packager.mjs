@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { copyFile, mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { loadManifest, validateManifestShape } from './manifest.mjs';
 import { hashSources } from './hasher.mjs';
 import { findMountUses, findPersistedMountPrefixes } from './scanner.mjs';
@@ -153,6 +153,23 @@ export async function packageApp(appDir, { pxcPath } = {}) {
   const { manifest, sourceHash, usedMounts } = await gather(appDir, pxcPath);
   const packagedAt = new Date().toISOString();
 
+  // Compose the base cartridge first. The base packages exactly as if it were
+  // a standalone THING (its own build runs, its own receipt is written into
+  // its own .crisp/), then its output chunks layer under the overlay's: the
+  // overlay wins every path conflict. This is Kustomize's base+overlay at the
+  // chunk level: the receipt names both chunk sets, so the composed artifact
+  // is still just content-addressed chunks all the way down.
+  let baseDir = null;
+  let baseReceipt = null;
+  if (manifest.composition) {
+    baseDir = join(appDir, '..', manifest.composition.base);
+    try {
+      baseReceipt = await packageApp(baseDir, { pxcPath });
+    } catch (err) {
+      throw new PackageError('base', `base "${manifest.composition.base}" failed to package: ${err.message}`);
+    }
+  }
+
   const build = await runBuild(manifest.build, appDir);
   if (build.timedOut || build.exitCode !== 0) {
     const why = build.timedOut
@@ -165,14 +182,26 @@ export async function packageApp(appDir, { pxcPath } = {}) {
   }
 
   const outDirAbs = join(appDir, manifest.outDir);
-  let outputs;
+  let overlayOutputs;
   try {
     const st = await stat(outDirAbs);
     if (!st.isDirectory()) throw new Error('not a directory');
-    outputs = await listOutputFiles(outDirAbs);
+    overlayOutputs = await listOutputFiles(outDirAbs);
   } catch (err) {
     throw new PackageError('output', `output dir "${manifest.outDir}" missing after build: ${err.message}`);
   }
+  if (baseReceipt) {
+    const baseOutAbs = join(baseDir, baseReceipt.outDir);
+    const baseOutputs = await listOutputFiles(baseOutAbs);
+    const overlaySet = new Set(overlayOutputs);
+    for (const rel of baseOutputs) {
+      if (overlaySet.has(rel)) continue; // overlay wins the conflict
+      const dest = join(outDirAbs, rel);
+      await mkdir(dirname(dest), { recursive: true });
+      await copyFile(join(baseOutAbs, rel), dest);
+    }
+  }
+  const outputs = await listOutputFiles(outDirAbs);
   if (outputs.length === 0) {
     throw new PackageError('output', `output dir "${manifest.outDir}" contains no files after build`);
   }
@@ -206,11 +235,19 @@ export async function packageApp(appDir, { pxcPath } = {}) {
     version: manifest.version ?? null,
     source: manifest.source ?? null, // tidy registry pointer for exp work, e.g. "exp/hello"
     entry: manifest.entry,
+    outDir: manifest.outDir,
     entryChunk: entryChunk ? entryChunk.sha256 : null,
     mounts: manifest.mounts,
     resolvedMounts: manifest.mounts,
     usedMounts,
     chunks,
+    composition: baseReceipt ? {
+      base: manifest.composition.base,
+      patches: manifest.composition.patches,
+      baseChunks: baseReceipt.chunks,
+      // Paths the overlay supplied itself, shadowing the base cartridge.
+      overridden: overlayOutputs.filter((p) => baseReceipt.chunks.some((c) => c.path === p)),
+    } : null,
     sourceHash, // provenance: which tree built this. Never a gate.
     manifestHash: createHash('sha256').update(manifestRaw).digest('hex'),
     ...(manifest.manifestSource ? { manifestSource: manifest.manifestSource } : {}),

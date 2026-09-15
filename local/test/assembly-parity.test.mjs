@@ -53,6 +53,16 @@ test('local and matrix assembly carry the same complete NTC surface without rebu
         assert.ok((await verifyReceipt(path.join(site, result.receipt), directory)).ok);
         assert.deepEqual(read(path.join(directory, 'receipt.json')).chunks, read(path.join(directory, 'pxcube-receipt.json')).chunks);
       }
+      // The offline cartridge runtime precaches every content-addressed chunk.
+      const sw = fs.readFileSync(path.join(site, 'sw.js'), 'utf8');
+      assert.ok(sw.includes(`const VERSION = ${JSON.stringify(snapshot.runId)}`), 'sw versioned by the run id');
+      assert.ok(sw.includes('tick-part-checklist.js'), 'sw precaches the review checklist component');
+      for (const result of snapshot.results) {
+        const receipt = read(path.join(site, 'experiences', result.id, 'receipt.json'));
+        for (const chunk of receipt.chunks) {
+          assert.ok(sw.includes(`./experiences/${result.id}/${chunk.path}`), `sw precaches ${result.id}/${chunk.path}`);
+        }
+      }
     }
     for (const result of local.report.results) {
       const from = path.join(local.site, 'experiences', result.id), to = path.join(assembled.site, 'experiences', result.id);

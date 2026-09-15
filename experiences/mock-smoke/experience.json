@@ -1,6 +1,6 @@
 {
   "title": "MockPxC \u00b7 retained worlds",
-  "description": "Keep an interactive workspace, create isolated test runs, and inspect their actual values.",
+  "description": "Keep an interactive workspace, create isolated test runs, inspect their actual values, and view and run the MockPxC unit tests in the browser.",
   "version": "0.1.0",
   "track": "exp",
   "mounts": [
