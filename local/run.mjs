@@ -156,7 +156,10 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
         write(path.join(stage, 'receipt.json'), receipt);
         // Retain the existing extended receipt URL for current consumers.
         write(path.join(stage, 'pxcube-receipt.json'), { ...receipt, runId, sharedToolsHash, outputHashes, tidy: { track: registration.track, changedSinceRegistration: drift } });
-        results.push({ id, ok: true, sourceHash, outputHashes, build: receipt.build, receipt: `experiences/${id}/receipt.json`, drift, cache, affected: target?.affected ?? true });
+        // Cache status is intentionally not part of the shipped NTC state:
+        // assembly from verified CI artifacts must remain byte-for-byte
+        // equivalent to assembly from a local cache miss.
+        results.push({ id, ok: true, sourceHash, outputHashes, build: receipt.build, receipt: `experiences/${id}/receipt.json`, drift });
       } catch (error) {
         results.push({ id, ok: false, sourceHash: sourceHash ?? null, error: String(error), drift });
         fs.mkdirSync(destination, { recursive: true }); write(path.join(destination, 'failure.json'), results.at(-1));

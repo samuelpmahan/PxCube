@@ -2,7 +2,7 @@
   "vendor/neat/README.md": {
     "commit": "be9a1ec7a13af9121a5725576126d6772cca52d5",
     "path": "README.md",
-    "sha256": "160003f3ebb102b2b554a2a2f3612e22f84e7a434fbddb3e6d5aeaa2877c4491",
+    "sha256": "b70f5a13734a34efdbc6d25357b5c5be683313cee70f742e7c106e73119d195b",
     "source": "neat"
   },
   "vendor/neat/src/board.ts": {
@@ -20,7 +20,7 @@
   "vendor/neat/src/index.ts": {
     "commit": "be9a1ec7a13af9121a5725576126d6772cca52d5",
     "path": "src/index.ts",
-    "sha256": "2dbafb639adcf0dea538d4958b791c6f3974a7e37ee91d0a18307d4388fcb61b",
+    "sha256": "3b0f27298bd299593f700dd90afa9cf577d9ea649f4fcbcc05c88368eebb0ebf",
     "source": "neat"
   },
   "vendor/neat/src/io.ts": {
@@ -62,7 +62,7 @@
   "vendor/neat/tick-part-checklist.js": {
     "note": "Published checklist component from the neat Pages deployment; vendored so the launcher stays same-origin and offline-capable.",
     "origin": "https://samuelpmahan.github.io/neat/tick-part-checklist.js",
-    "sha256": "0b877eebf88f93a34da7dd0481d994bdc233c7da085cc5399068acd1db7c0234",
+    "sha256": "a35e84ad9d5b747e2403289c9e334493a358501019f23bd0518bbf36c9ae819a",
     "source": "neat"
   },
   "vendor/tidy/README.md": {
