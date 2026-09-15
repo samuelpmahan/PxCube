@@ -139,6 +139,10 @@ jobs:
         run: node local/test/ntc-browser.mjs
       - name: same packaging program as local preview
         run: node local/ci.mjs
+      - name: execute declared critical journeys against the assembled artifact
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/pxcube-browser/node_modules/playwright/index.mjs
+        run: node local/test/critical-journeys-browser.mjs
       - name: compare and retain a CreateGraphics composition
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/pxcube-browser/node_modules/playwright/index.mjs
@@ -152,6 +156,7 @@ jobs:
           path: |
             .pxcube/runs/
             evidence/build-bag-scaffold/
+            evidence/critical-journeys/
             evidence/ntc-console/
           include-hidden-files: true
 
