@@ -5,6 +5,7 @@ import fs from 'node:fs';
 const compositions = fs.readFileSync('local/studio-demo/compositions.mjs', 'utf8');
 const graphics = fs.readFileSync('local/studio-demo/graphics.mjs', 'utf8');
 const app = fs.readFileSync('local/studio-demo/app.mjs', 'utf8');
+const index = fs.readFileSync('local/studio-demo/index.html', 'utf8');
 const css = fs.readFileSync('local/studio-demo/style.css', 'utf8');
 
 test('CreateGraphics exposes nine authored compositions and real rendered output', () => {
@@ -39,6 +40,9 @@ test('CreateGraphics keeps selection, reversible controls, and explicit Keep in 
   assert.match(css, /\.create-workspace\{[^}]*grid-template-columns/);
   assert.match(css, /#card-study\{[^}]*overflow:hidden/);
   assert.match(css, /#study-cards\{[^}]*grid-template-rows:repeat\(3/);
+  assert.match(css, /\.study-card\{[^}]*grid-template-rows:auto minmax\(0,1fr\) auto/);
+  assert.match(index, /id="study-detail"/);
+  assert.doesNotMatch(app, /class="study-note"/);
   assert.match(css, /\.study-card\[aria-pressed=true\]/);
 });
 

@@ -4,5 +4,5 @@ class TickPartChecklist extends HTMLElement{static get observedAttributes(){retu
 // full fixed box into a click shield over the active Experience iframe. The
 // wrapper is inert; only the trigger and checklist surface opt back in.
 const checklistDraw=TickPartChecklist.prototype.draw;
-TickPartChecklist.prototype.draw=function(){checklistDraw.call(this);const style=this.shadowRoot.querySelector('style');if(style)style.textContent+=':host{pointer-events:none!important}.w{pointer-events:none!important}.w>button,.w>section{pointer-events:auto!important}.w.c{position:fixed;left:72px;top:12px;right:auto;bottom:auto}';};
+TickPartChecklist.prototype.draw=function(){checklistDraw.call(this);const style=this.shadowRoot.querySelector('style');if(style)style.textContent+=':host{pointer-events:none!important}.w{pointer-events:none!important}.w>button,.w>section{pointer-events:auto!important}.w.c{position:static;left:auto;top:auto;right:auto;bottom:auto}';};
 customElements.define('tick-part-checklist',TickPartChecklist)})();

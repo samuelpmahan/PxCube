@@ -91,7 +91,10 @@ async function drawSpotlight(){
   $('compare-cards').onclick=()=>run(async()=>{
     say('Composing nine directions from this disc…');
     const candidates=await model.studyCards();
-    $('study-cards').innerHTML=candidates.map(({study,graphic},i)=>`<button class="study-card" data-study="${esc(study.id)}" aria-label="Use ${esc(study.name)}" aria-pressed="${study.id===(model.context.design.study??defaultStudy)}"><span class="study-name">${i+1} · ${esc(study.name)}</span><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(graphic.svg)}" alt="${esc(study.name)} card"><span class="study-note">${esc(study.note)}</span><span class="study-choice">${graphic.width} × ${graphic.height} · ${study.id===(model.context.design.study??defaultStudy)?'Current layout':'Try this layout'}</span></button>`).join('');
+    $('study-cards').innerHTML=candidates.map(({study,graphic},i)=>`<button class="study-card" data-study="${esc(study.id)}" aria-label="Use ${esc(study.name)}. ${esc(study.note)}" aria-pressed="${study.id===(model.context.design.study??defaultStudy)}"><span class="study-name">${i+1} · ${esc(study.name)}</span><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(graphic.svg)}" alt="${esc(study.name)} card"><span class="study-choice">${graphic.width} × ${graphic.height} · ${study.id===(model.context.design.study??defaultStudy)?'Current layout':'Try this layout'}</span></button>`).join('');
+    const detailStudy=allCardStudies.find(item=>item.id===(model.context.design.study??defaultStudy));
+    $('study-detail').textContent=detailStudy?`${detailStudy.name}: ${detailStudy.note}`:'';
+    $('study-cards').querySelectorAll('[data-study]').forEach(button=>button.onfocus=()=>{const study=allCardStudies.find(item=>item.id===button.dataset.study);if(study)$('study-detail').textContent=`${study.name}: ${study.note}`;});
     $('card-study').showModal();
     $('study-cards').querySelectorAll('[data-study]').forEach(button=>button.onclick=()=>run(async()=>{
       const nextStudy=allCardStudies.find(item=>item.id===button.dataset.study);

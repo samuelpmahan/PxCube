@@ -35,6 +35,27 @@ async function nativeAndUncovered(frame, selector) {
   });
 }
 
+async function assertChecklistPlacement(page, viewportName, viewport) {
+  const checklist = page.locator('tick-part-checklist');
+  await checklist.waitFor();
+  const state = await checklist.evaluate(host => {
+    const open = host.shadowRoot.querySelector('#open');
+    const shell = host.shadowRoot.querySelector('.w');
+    const hostBox = host.getBoundingClientRect(), openBox = open?.getBoundingClientRect();
+    return {
+      hostBox: { right: hostBox.right, bottom: hostBox.bottom },
+      openBox: openBox && { right: openBox.right, bottom: openBox.bottom },
+      hostPointerEvents: getComputedStyle(host).pointerEvents,
+      wrapperPointerEvents: getComputedStyle(shell).pointerEvents,
+      triggerPointerEvents: open && getComputedStyle(open).pointerEvents,
+    };
+  });
+  assert.equal(state.hostPointerEvents, 'none', `${viewportName}: checklist host must not intercept Experience input`);
+  assert.equal(state.wrapperPointerEvents, 'none', `${viewportName}: checklist wrapper must not intercept Experience input`);
+  assert.equal(state.triggerPointerEvents, 'auto', `${viewportName}: checklist trigger must remain accessible`);
+  assert.ok(state.openBox && state.openBox.right >= viewport.width - 28 && state.openBox.bottom >= viewport.height - 28, `${viewportName}: collapsed Checklist trigger must be bottom-right`);
+}
+
 try {
   const base = `http://127.0.0.1:${server.address().port}/PxCube/`;
   for (const { id, journey } of criticalJourneyPlans(root)) {
@@ -47,6 +68,7 @@ try {
       page.setDefaultTimeout(15000);
       page.on('pageerror', error => errors.push(`${id}/${viewportName}: ${error.message}`));
       await page.goto(base);
+      await assertChecklistPlacement(page, viewportName, viewport);
       await page.locator('[data-tab="exp"]').click();
       await page.locator(`button.card[data-id="${id}"]`).click();
       const frame = page.frameLocator('#thing');

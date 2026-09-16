@@ -51,10 +51,43 @@ try {
   await frame.locator('#card-study[open]').waitFor();
   assert.equal(await frame.locator('#study-cards .study-card').count(), 9);
   assert.equal(await frame.locator('#study-cards .study-card img').count(), 9);
+  const tileGeometry = await frame.locator('#study-cards .study-card').evaluateAll(cards => cards.map(card => {
+    const tile = card.getBoundingClientRect();
+    const image = card.querySelector('img').getBoundingClientRect();
+    const text = [...card.querySelectorAll('.study-name,.study-note,.study-choice')].map(node => {
+      const box = node.getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom, left: box.left, right: box.right };
+    });
+    return { tile: { top: tile.top, bottom: tile.bottom, left: tile.left, right: tile.right }, image: { top: image.top, bottom: image.bottom, left: image.left, right: image.right }, text };
+  }));
+  for (const { tile, image, text } of tileGeometry) {
+    assert.ok(image.left >= tile.left && image.right <= tile.right && image.top >= tile.top && image.bottom <= tile.bottom);
+    for (const box of text) assert.ok(box.left >= tile.left && box.right <= tile.right && box.top >= tile.top && box.bottom <= tile.bottom);
+    for (const box of text.filter((_, i) => i === 0 || i === 1)) assert.ok(box.bottom <= image.top || box.top >= image.bottom, 'study text intersects image');
+  }
   assert.equal(await frame.locator('#card-study').evaluate(dialog => getComputedStyle(dialog).overflow), 'hidden');
   assert.equal(await frame.locator('#study-cards').evaluate(grid => getComputedStyle(grid).overflow), 'visible');
   const selected = frame.locator('#study-cards .study-card[aria-pressed="true"]');
   assert.equal(await selected.count(), 1);
+  const compositionBounds = await page.locator('#thing').evaluate(async element => {
+    const cards = await element.contentWindow.pxCubeDemo.model.studyCards();
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:1px;height:1px;overflow:hidden;';
+    document.body.append(holder);
+    try {
+      return cards.map(({ study, graphic }) => {
+        holder.innerHTML = graphic.svg;
+        const svg = holder.firstElementChild;
+        const svgBox = svg.getBoundingClientRect();
+        const overflow = [...svg.querySelectorAll('[data-node]')].map(node => {
+          const box = node.getBoundingClientRect();
+          return { id: node.dataset.node, left: box.left - svgBox.left, top: box.top - svgBox.top, right: box.right - svgBox.left, bottom: box.bottom - svgBox.top };
+        }).filter(box => box.left < -1 || box.top < -1 || box.right > svgBox.width + 1 || box.bottom > svgBox.height + 1);
+        return { id: study.id, width: graphic.width, height: graphic.height, overflow };
+      });
+    } finally { holder.remove(); }
+  });
+  assert.deepEqual(compositionBounds.filter(item => item.overflow.length), [], `authored composition bounds overflow: ${JSON.stringify(compositionBounds)}`);
   await page.screenshot({ path: path.join(evidence, 'comparison-nine.png') });
   checks.push('nine authentic rendered compositions are directly comparable in one viewport');
 
