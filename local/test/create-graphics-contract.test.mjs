@@ -7,6 +7,7 @@ const graphics = fs.readFileSync('local/studio-demo/graphics.mjs', 'utf8');
 const app = fs.readFileSync('local/studio-demo/app.mjs', 'utf8');
 const index = fs.readFileSync('local/studio-demo/index.html', 'utf8');
 const css = fs.readFileSync('local/studio-demo/style.css', 'utf8');
+const buildStudio = fs.readFileSync('local/build-studio.mjs', 'utf8');
 
 test('CreateGraphics exposes nine authored compositions and real rendered output', () => {
   const ids = [...compositions.matchAll(/\{id:'([^']+)',name:/g)].map(match => match[1]);
@@ -80,4 +81,14 @@ test('ExportGraphics keeps one immutable capture and one explicit browser downlo
   assert.match(css, /\.export-workspace\{[^}]*height:min/);
   assert.match(css, /\.export-facts\{[^}]*display:grid/);
   assert.match(css, /\.export-result\{[^}]*margin-top:auto/);
+});
+
+test('retained calculation drift has explicit working and frozen restore policies', () => {
+  assert.match(buildStudio, /mode\?: .*working/);
+  assert.match(buildStudio, /const working = options\.mode/);
+  assert.match(buildStudio, /immutableCalculations\?: string\[\]/);
+  assert.match(fs.readFileSync('local/studio-demo/model.mjs', 'utf8'), /immutableCalculations:\['fn\.studio\.capture','fn\.studio\.competitionCapture'\]/);
+  assert.match(buildStudio, /!working/);
+  assert.match(buildStudio, /parts\.set\(node\.id, result\)/);
+  assert.match(fs.readFileSync('local/studio-demo/model.mjs', 'utf8'), /mode:\'working\'/);
 });

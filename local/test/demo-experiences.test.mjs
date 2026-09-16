@@ -16,6 +16,7 @@ const packaged=cli(repo,'package',path.join(repo,'experiences/build-bag'));
 assert.equal(packaged.status,0,packaged.stderr);
 const entry=path.join(repo,'experiences/build-bag/dist/model.mjs');
 const {openDemo}=await import(pathToFileURL(entry));
+const {restore}=await import(pathToFileURL(path.join(path.dirname(entry),'studio/upload-disc-to-shelf/persistence.js')));
 const {pack,unpack,archiveStorage}=await import(pathToFileURL(path.join(path.dirname(entry),'archive-storage.mjs')));
 const memory=()=>{let raw=null;return{getItem:()=>raw,setItem:(_key,value)=>{raw=value;}};};
 
@@ -76,6 +77,41 @@ test('render uses actual source Parts; captures replay and cannot drift with liv
   assert.equal(target.context.graphics.length,1);
   assert.equal(await target.importCapture({...capture,source:{...capture.source,graphic:capture.source.graphic+'.another'}}),true);
   assert.equal(target.context.graphics.length,2,'equal image bytes do not collapse different source Parts');
+});
+
+test('working-mode restore recomputes stale derived geometry without losing user state',async()=>{
+  const storage=memory(),demo=await openDemo(storage),source=demo.experience.shelf()[0],rendered=await demo.render(source.address,demo.context.design),kept=await demo.capture(rendered,'mock.create-graphics');
+  const before=structuredClone(kept.capture),archive=JSON.parse(storage.getItem(''));
+  const names=new Map(archive.nodes.filter(node=>node.function).map(node=>[node.id,node.function]));
+  const canvasNode=archive.nodes.find(node=>names.get(node.calculation)==='fn.studio.canvasScene');
+  assert.ok(canvasNode,'fixture includes the changed canvas calculation');
+  if(Array.isArray(canvasNode.material?.object))canvasNode.material.object=canvasNode.material.object.filter(([key])=>key!=='compositionEnvelope');
+  storage.setItem('',JSON.stringify(archive));
+  const restored=await openDemo(storage);
+  assert.deepEqual(restored.context.design,demo.context.design,'user-owned design survives the migration');
+  assert.deepEqual(restored.value(restored.context.graphics[0]),before,'unchanged capture remains stable when current graph semantics produce the same bytes');
+  const refreshed=await restored.render(restored.context.selectedDisc,restored.context.design);
+  assert.equal(refreshed.graphic.width,1920);
+  assert.match(refreshed.graphic.svg,/Buzzz/);
+  const clean=await openDemo(memory()),cleanRender=await clean.render(clean.context.selectedDisc,clean.context.design);
+  assert.equal(refreshed.graphic.svg,cleanRender.graphic.svg,'working restore uses current geometry output');
+  await restored.patch({name:'Migrated geometry'});
+  const secondReload=await openDemo(storage);
+  assert.deepEqual(secondReload.value(secondReload.context.graphics[0]),before,'the migrated archive remains reloadable with the capture intact');
+});
+
+test('working-mode restore recomputes non-geometry derived drift while frozen restore rejects it',async()=>{
+  const storage=memory(),demo=await openDemo(storage),source=demo.experience.shelf()[0],rendered=await demo.render(source.address,demo.context.design);
+  await demo.patch({name:'Integrity fixture'});
+  const archive=JSON.parse(storage.getItem('')),names=new Map(archive.nodes.filter(node=>node.function).map(node=>[node.id,node.function]));
+  const graphicNode=archive.nodes.find(node=>names.get(node.calculation)==='fn.studio.graphic');
+  assert.ok(graphicNode,'fixture includes a non-geometry calculated graphic');
+  if(Array.isArray(graphicNode.material?.object))graphicNode.material.object=graphicNode.material.object.filter(([key])=>key!=='svg');
+  storage.setItem('',JSON.stringify(archive));
+  const working=await openDemo(storage);
+  const current=await working.render(working.context.selectedDisc,working.context.design);
+  assert.equal(current.graphic.width,1920,'working mode recomputes the derived graphic');
+  await assert.rejects(restore(storage.getItem(''),demo.pxc),/Restored Calculation output differs from saved material/,'frozen mode remains strict');
 });
 
 test('search excludes nicknames and preserves mold / plastic / descending weight order',async()=>{

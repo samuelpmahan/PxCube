@@ -14,7 +14,7 @@ const install=pxc=>{for(const [name,fn] of Object.entries({...calculations,...co
 export async function openDemo(storage) {
   const known=createExperience(()=>{}); install(known.pxc);
   const raw=storage.getItem('');
-  let savedState=raw===null?null:await restore(raw,known.pxc);
+  let savedState=raw===null?null:await restore(raw,known.pxc,{mode:'working',immutableCalculations:['fn.studio.capture','fn.studio.competitionCapture']});
   const experience=createExperience(()=>{}, {state:savedState??undefined,persist(state){storage.setItem('',archive(state));savedState=state;}});
   const pxc=experience.pxc; install(pxc);
   if(raw===null) {

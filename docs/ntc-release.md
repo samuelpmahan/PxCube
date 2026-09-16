@@ -44,6 +44,24 @@ snapshot carried through a branch commit; its `transport.kind` is `git-commit`
 instead of `working-tree`. That transport commit makes the bytes available on
 another machine—it is neither acceptance evidence nor a tidy/clean promotion.
 
+## Calculation evolution and retained state
+
+`neat` is a working lane: its retained browser state preserves authored/source
+material and immutable captures, then recomputes every derived Part using the
+current calculations. A changed output is therefore an ordinary iteration, not
+a restore failure. Unfrozen demo state must never be bricked by an old derived
+value.
+
+`tidy` is the boundary that freezes a graph. It records the selected
+calculation IDs, implementation/schema versions, and exact material choices.
+Only a tidy-frozen artifact uses strict replay: the canonical `neat`
+calculation schema/CLI should provide stable IDs, explicit supported
+`fromVersion` migrations, deterministic migration functions, and declared
+invariants. An unregistered version change fails closed. `crisp` verifies the
+frozen graph and writes the migration/invariant evidence into its receipt.
+PxCube's browser harness is an adapter/executor, not the home for that
+base-library policy.
+
 Useful commands:
 
 ```sh
