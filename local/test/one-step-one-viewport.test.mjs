@@ -17,7 +17,7 @@ test('the review checklist wrapper cannot shield the active Experience', () => {
   assert.match(checklist, /:host\{pointer-events:none!important\}/);
   assert.match(checklist, /\.w\{pointer-events:none!important\}/);
   assert.match(checklist, /\.w>button,.w>section\{pointer-events:auto!important\}/);
-  assert.match(checklist, /\.w\.c\{position:fixed;left:72px;top:12px;right:auto;bottom:auto\}/);
+  assert.match(checklist, /\.w\.c\{position:static;left:auto;top:auto;right:auto;bottom:auto\}/);
 });
 
 test('the crop step keeps primary controls in one viewport', () => {

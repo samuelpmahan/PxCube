@@ -106,7 +106,7 @@ write history in localStorage. Back/reopen and page reload restore those values;
 reopening an interactive sandbox does not reseed or write it, and a new test
 iterator never overwrites its predecessor or copies incidental workspace edits. Storage quota failure leaves
 previous state intact. A second owner with stale storage is refused, rather than
-silently overwriting another owner's updates. There is no automatic space policy.
+silently overwriting another owner's updates.
 New snapshots record `kind: interactive` without an iteration field, or
 `kind: test` with one. Older snapshots retain their exact material and display
 “purpose unrecorded”; a number alone is not evidence of how an earlier run was
@@ -117,6 +117,22 @@ MockPxC still returns plain fixture values, including static `fn` samples. Its
 write history is a mock change log, not a P&C Calculation receipt. It does not
 implement Studio's Part wrappers, composition or effects interfaces. JSON retention
 here is not preservation of cross-realm JavaScript object identity.
+
+## Generated-run retention
+
+`.pxcube/runs/` is generated packaging scratch, not source or Git evidence. To
+reclaim local disk safely, inspect the fixed scoped plan first:
+
+```sh
+node local/prune-generated-runs.mjs --dry-run
+node local/prune-generated-runs.mjs --apply --keep 3
+```
+
+The utility refuses paths outside this repository's `.pxcube/runs`, accepts
+only run-directory IDs made by `local/run.mjs`, never follows symlinks, and
+always keeps `latest.json`'s target plus the requested newest runs. Its default
+is dry-run; `--apply` is required for deletion. It does not touch source,
+committed evidence, package cache, or any worktree.
 
 ## Checks and evidence
 

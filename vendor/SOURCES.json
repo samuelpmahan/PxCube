@@ -60,9 +60,9 @@
     "source": "neat"
   },
   "vendor/neat/tick-part-checklist.js": {
-    "note": "Published checklist component from the neat Pages deployment; vendored so the launcher stays same-origin and offline-capable.",
+    "note": "Published checklist component, vendored for same-origin/offline use. PxCube appends a checked shell patch for bottom-right placement and pointer isolation; this hash pins the exact shipped bytes.",
     "origin": "https://samuelpmahan.github.io/neat/tick-part-checklist.js",
-    "sha256": "a35e84ad9d5b747e2403289c9e334493a358501019f23bd0518bbf36c9ae819a",
+    "sha256": "aac0774065e3657cd06bdf6bae921318d98956e2dc19532629dcc59d99f27801",
     "source": "neat"
   },
   "vendor/tidy/README.md": {
