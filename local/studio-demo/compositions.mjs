@@ -102,7 +102,7 @@ export function layeredCompositionScene({scene,layers}){
   if(!origin||!entries.length)return {...scene,layers};
   const local=unionBounds(entries),safe=scene.safe;
   if(safe){
-    const requested=Math.max(0,Number(scene.scale)||1),scale=Math.min(requested,safe.width/local.width,safe.height/local.height),anchor=scene.compositionAnchor??'bottom-left';
+    const requested=Math.max(0,Number(scene.scale)||1),envelope=scene.compositionEnvelope??{width:Infinity,height:Infinity},hardMax=scene.compositionHardMax??{width:768,height:324},target=Math.min(envelope.width/local.width,envelope.height/local.height)*requested,scale=Math.min(target,safe.width/local.width,safe.height/local.height,hardMax.width/local.width,hardMax.height/local.height),anchor=scene.compositionAnchor??'bottom-left';
     const xBase=anchor==='bottom-center'?safe.x+(safe.width-local.width*scale)/2-local.x*scale:anchor.endsWith('right')?safe.x+safe.width-local.x*scale-local.width*scale:safe.x-local.x*scale;
     const yBase=anchor.startsWith('top')?safe.y-local.y*scale:safe.y+safe.height-local.y*scale-local.height*scale;
     const x=xBase+(Number(scene.compositionOffsetX)||0),y=yBase+(Number(scene.compositionOffsetY)||0);

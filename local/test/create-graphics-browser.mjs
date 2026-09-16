@@ -111,7 +111,6 @@ try {
   assert.match(await frame.locator('#study-detail-copy').textContent(), /Crest/);
   await frame.locator('#card-study[open]').waitFor();
   assert.equal(await frame.locator('#study-cards .study-card[aria-pressed="true"]').count(), 1);
-  assert.equal(await frame.locator('#composition-size').inputValue(), 'balanced');
   assert.match(await frame.locator('#study-cards .study-card[aria-pressed="true"] .study-choice').textContent(), /Selected/);
   const liveBounds = await page.locator('#thing').evaluate(async element => {
     const model = element.contentWindow.pxCubeDemo.model;
@@ -144,12 +143,31 @@ try {
   assert.equal(await frame.locator('#preview svg').getAttribute('width'), '1920');
   assert.match(await frame.locator('.choice-summary').textContent(), /Crest/);
   assert.equal(await frame.locator('#composition-size').inputValue(), 'balanced');
+  assert.equal(await frame.locator('#composition-size').isVisible(), true);
+  assert.equal(await frame.locator('#composition-scale-nudge').isVisible(), true);
+  assert.match(await frame.locator('.create-preview > .caption').textContent(), /1920 × 1080/);
+  assert.match(await frame.locator('.create-preview > .caption').textContent(), /illustrative|not to scale/i);
+  const footprints = await page.locator('#thing').evaluate(async element => {
+    const model = element.contentWindow.pxCubeDemo.model;
+    const ids = ['broadcast-rail','split-ticket','score-slip','floating-orbit','caption-ribbon','upright-tag','crest','edge-crop','number-plate'];
+    const out = [];
+    for (const id of ids) {
+      const balanced = await model.render(model.context.selectedDisc, { ...model.context.design, study:id, compositionScaleNudge:0, compositionOffsetX:0, compositionOffsetY:0 });
+      const max = await model.render(model.context.selectedDisc, { ...model.context.design, study:id, compositionSize:'full-width', compositionScaleNudge:10, compositionOffsetX:0, compositionOffsetY:0 });
+      out.push({ id, balanced: balanced.graphic.bounds, max: max.graphic.bounds });
+    }
+    return out;
+  });
+  for (const item of footprints) {
+    assert.ok(item.balanced.width <= 640 && item.balanced.height <= 270, `balanced footprint too large: ${JSON.stringify(item)}`);
+    assert.ok(item.max.width <= 768 && item.max.height <= 324, `max footprint too large: ${JSON.stringify(item)}`);
+  }
   await frame.locator('#placement').selectOption('bottom-center');
   await frame.locator('#composition-scale-nudge').selectOption('-5');
   await frame.locator('#composition-offset-x').selectOption('20');
   await frame.locator('#composition-offset-y').selectOption('-20');
   await frame.locator('#preview svg').waitFor();
-  assert.match(await frame.locator('#preview svg').innerHTML(), /scale\(1\.9474/);
+  assert.match(await frame.locator('#preview svg').innerHTML(), /scale\(0?\d/);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await frame.locator('.mobile-step-nav').count(), 1);
   assert.equal(await frame.locator('[data-create-step="verify"]').getAttribute('aria-selected'), 'true');

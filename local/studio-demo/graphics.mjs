@@ -25,9 +25,9 @@ export const cardStudies=Object.freeze(spacingStudies.flatMap(spacing=>typeStudi
 export const allCardStudies=[...compositionStudies,...cardStudies];
 export const defaultDesign = Object.freeze({layout:currentLayout,study:defaultComposition,preset:'spotlight',orientation:'landscape',frame:'none',placement:'bottom-left',compositionSize:'balanced',compositionScaleNudge:0,compositionOffsetX:0,compositionOffsetY:0,accent:'#a6edda',background:'#162c39',foreground:'#f6f3e9',title:''});
 export const compositionSizeStudies=Object.freeze([
-  {id:'compact',name:'Compact',scale:1.55,note:'Keeps the scene open around the graphic.'},
-  {id:'balanced',name:'Balanced',scale:2.05,note:'Assisted starting point for a clear, useful overlay.'},
-  {id:'full-width',name:'Full width',scale:2.7,note:'Uses the safe canvas width when the composition allows it.'},
+  {id:'compact',name:'Compact · 576 × 243',scale:1,envelopeWidth:576,envelopeHeight:243,note:'Keeps the scene open around the graphic.'},
+  {id:'balanced',name:'Preferred · 640 × 270',scale:1,envelopeWidth:640,envelopeHeight:270,note:'Assisted starting point for a clear, useful overlay.'},
+  {id:'full-width',name:'Maximum · 768 × 324',scale:1,envelopeWidth:768,envelopeHeight:324,note:'The largest allowed export footprint.'},
 ]);
 export const compositionScaleNudges=Object.freeze([-10,-5,-3,-1,0,1,3,5,10]);
 export const compositionOffsetNudges=Object.freeze([-120,-60,-20,0,20,60,120]);
@@ -148,7 +148,7 @@ export function canvasScene({card,frame,design}) {
   const centerShift=anchor==='bottom-center'?(base.safe.x+(base.safe.width-base.bounds.width)/2-base.bounds.x):0;
   const dx=centerShift+(Number(design.compositionOffsetX)||0),dy=Number(design.compositionOffsetY)||0;
   const placements=base.placements.map(item=>({...item,x:item.x+dx,y:item.y+dy}));
-  return {...base,compositionAnchor:anchor,compositionOffsetX:Number(design.compositionOffsetX)||0,compositionOffsetY:Number(design.compositionOffsetY)||0,placements,bounds:{...base.bounds,x:base.bounds.x+dx,y:base.bounds.y+dy}};
+  return {...base,compositionAnchor:anchor,compositionOffsetX:Number(design.compositionOffsetX)||0,compositionOffsetY:Number(design.compositionOffsetY)||0,compositionEnvelope:{width:size.envelopeWidth,height:size.envelopeHeight},compositionHardMax:{width:768,height:324},placements,bounds:{...base.bounds,x:base.bounds.x+dx,y:base.bounds.y+dy}};
 }
 export const calculations = {
   'fn.studio.reorderSelection':({context,view,from,to})=>reorderBag({bag:createBag({id:'draft',name:context.name||'Draft',selection:context.selection,rows:view.rows}),discId:view.rows.find(row=>row.address===context.selection[from]).disc.id,toIndex:to}).versions.map(v=>v.address),

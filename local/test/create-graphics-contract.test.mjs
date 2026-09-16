@@ -14,6 +14,7 @@ test('CreateGraphics exposes nine authored compositions and real rendered output
   assert.equal(new Set(ids).size, 9);
   assert.match(app, /Compare 9 compositions/);
   assert.match(app, /actual rendered SVG/);
+  assert.match(app, /Illustrative background — not to scale\. Graphic dimensions are exact\./);
   assert.doesNotMatch(app, /Add image|image placeholder/i);
   assert.doesNotMatch(compositions, /Add image|image placeholder/i);
 });
@@ -44,6 +45,7 @@ test('CreateGraphics keeps selection, reversible controls, and explicit Keep in 
   assert.match(index, /id="study-detail-copy"/);
   assert.doesNotMatch(app, /class="study-note"/);
   assert.match(css, /\.study-card\[aria-pressed=true\]/);
+  assert.match(app, /className='verify-size'/);
 });
 
 test('CreateGraphics exposes discrete geometry tuning in the shared render calculation', () => {
@@ -56,6 +58,9 @@ test('CreateGraphics exposes discrete geometry tuning in the shared render calcu
   assert.match(graphics, /compositionSizeStudies/);
   assert.match(graphics, /compositionScaleNudges/);
   assert.match(graphics, /compositionOffsetNudges/);
+  assert.match(graphics, /envelopeWidth:640,envelopeHeight:270/);
+  assert.match(graphics, /envelopeWidth:768,envelopeHeight:324/);
+  assert.match(compositions, /compositionHardMax/);
   assert.match(graphics, /anchor==='bottom-center'\?'bottom-left':anchor/);
   assert.match(graphics, /Number\(design\.compositionOffsetX\)\|\|0/);
   assert.doesNotMatch(app, /type="range"[^>]*composition/);

@@ -56,7 +56,7 @@ async function drawBag(){
 }
 function graphicPreview(graphic){
   const content=graphic?.svg??'<p class="empty">Your next exported graphic goes here.<br>Import a kept version or try the seeded example.</p>';
-  return `<div id="preview" class="preview ${graphic&&previewBackground==='scene'?'preview-scene':''}">${content}</div>${graphic?`<label class="preview-setting">Preview background<select id="preview-background"><option value="scene" ${previewBackground==='scene'?'selected':''}>Newspaper tee shot</option><option value="grid" ${previewBackground==='grid'?'selected':''}>Transparency grid</option></select><span>Photo: <a href="https://commons.wikimedia.org/wiki/File:DSC_5610_(4526926931).jpg" target="_blank" rel="noopener noreferrer">bradleypjohnson</a> · <a href="https://creativecommons.org/licenses/by/2.0/" target="_blank" rel="noopener noreferrer">CC BY 2.0</a> · newsprint treatment · preview only</span></label>`:''}`;
+  return `<div id="preview" class="preview ${graphic&&previewBackground==='scene'?'preview-scene':''}">${content}</div>${graphic?`<label class="preview-setting">Preview background<select id="preview-background"><option value="scene" ${previewBackground==='scene'?'selected':''}>Newspaper tee shot</option><option value="grid" ${previewBackground==='grid'?'selected':''}>Transparency grid</option></select><span>Illustrative background — not to scale. Graphic dimensions are exact. Photo: <a href="https://commons.wikimedia.org/wiki/File:DSC_5610_(4526926931).jpg" target="_blank" rel="noopener noreferrer">bradleypjohnson</a> · <a href="https://creativecommons.org/licenses/by/2.0/" target="_blank" rel="noopener noreferrer">CC BY 2.0</a> · newsprint treatment · preview only</span></label>`:''}`;
 }
 function bindPreview(){
   const select=$('preview-background');
@@ -79,7 +79,7 @@ async function offerOrder(captures){
   const offers=JSON.parse(localStorage.getItem(mailbox)??'[]'),ids=new Set(captures.map(captureIdentity));let index=0;
   localStorage.setItem(mailbox,JSON.stringify(offers.map(c=>ids.has(captureIdentity(c))?captures[index++]:c)));
 }
-async function drawSpotlight(){
+async function drawSpotlightLegacy(){
   const context=model.context,design=context.design;
   result=await model.render(context.selectedDisc,design);
   const all=await rows(),selected=all.find(row=>row.address===context.selectedDisc);
@@ -112,6 +112,27 @@ async function drawSpotlight(){
     await drawCreate();
   });};
   document.querySelectorAll('[data-version]').forEach(button=>button.onclick=()=>run(async()=>{const capture=model.value(button.dataset.version);if(capture.competition){await model.patch({graphicsPurpose:'competition',competitionAddress:capture.source.material,design:capture.design});await drawCreate();return;}await model.patch({selectedDisc:capture.source.disc,design:{...capture.design,layout:currentLayout,placement:capture.design.placement??'bottom-left',frame:capture.design.layout?capture.design.frame:'none'}});await drawCreate();say('Reopened that kept design. Its original capture stays unchanged.');}));
+}
+async function drawSpotlight(){
+  await drawSpotlightLegacy();
+  const verify=document.querySelector('[data-create-panel="verify"]'),geometry=document.querySelector('.create-geometry'),grid=geometry?.querySelector('.geometry-grid');
+  if(!verify||!geometry||!grid)return;
+  const size=$('composition-size'),nudge=$('composition-scale-nudge'),sizeDetails=document.createElement('details');
+  sizeDetails.className='verify-size';
+  sizeDetails.open=true;
+  sizeDetails.innerHTML='<summary>Size · exact export pixels</summary><div class="geometry-grid"></div><p class="caption geometry-help">Preferred 640 × 270 · hard maximum 768 × 324 · exact nudges stay reversible until Keep.</p>';
+  const verifyGrid=sizeDetails.querySelector('.geometry-grid');
+  if(size)verifyGrid.append(size.parentElement);
+  if(nudge)verifyGrid.append(nudge.parentElement);
+  verify.insertBefore(sizeDetails,verify.querySelector('.caption'));
+  const caption=verify.querySelector(':scope > .caption'),bounds=result?.graphic?.bounds;
+  if(caption&&result?.graphic){
+    const width=Math.round(Number(bounds?.width)||0),height=Math.round(Number(bounds?.height)||0);
+    caption.textContent=`${result.graphic.width} × ${result.graphic.height} · actual rendered SVG · composed footprint ${width} × ${height} export px · Illustrative background — not to scale. Graphic dimensions are exact. · ${designFrameLabel(model.context.design)} · ${String(model.context.design.placement??'bottom-left').replaceAll('-',' ')} · ${model.context.design.compositionSize??'balanced'} · ${Number(model.context.design.compositionScaleNudge)||0}% · X ${Number(model.context.design.compositionOffsetX)||0} / Y ${Number(model.context.design.compositionOffsetY)||0} px`;
+  }
+}
+function designFrameLabel(design){
+  return design.frame==='none'?'transparent canvas · preview background will not export':'solid canvas background';
 }
 function exportFilename(capture,address,format,outputHash=null){
   const index=String(model.context.graphics.indexOf(address)+1).padStart(3,'0');
