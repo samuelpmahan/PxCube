@@ -162,8 +162,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await frame.locator('#graphic-title').fill('On the course');
   await frame.locator('#graphic-title').dispatchEvent('change');
-  await frame.locator('#preview svg').waitFor();
-  assert.match(await frame.locator('#preview').textContent(), /On the course/);
+  await frame.locator('#preview').filter({ hasText: 'On the course' }).waitFor();
   await frame.locator('#keep-graphic').click();
   await frame.locator('#status').filter({ hasText: 'Kept' }).waitFor();
   const inspected = await page.locator('#thing').evaluate(element => element.contentWindow.pxCubeExperience.inspect());
