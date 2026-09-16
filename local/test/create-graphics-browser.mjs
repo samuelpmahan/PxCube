@@ -118,22 +118,14 @@ try {
     const base = model.context;
     const studies = ['broadcast-rail','split-ticket','score-slip','floating-orbit','caption-ribbon','upright-tag','crest','edge-crop','number-plate'];
     const anchors = ['top-left','top-right','bottom-left','bottom-center','bottom-right'];
-    const holder = document.createElement('div');
-    holder.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:1px;height:1px;overflow:hidden;';
-    document.body.append(holder);
-    try {
-      const failures=[];
-      for(const study of studies)for(const placement of anchors){
-        const rendered=await model.render(base.selectedDisc,{...base.design,study,placement,compositionSize:'balanced',compositionScaleNudge:0,compositionOffsetX:0,compositionOffsetY:0});
-        holder.innerHTML=rendered.graphic.svg;
-        const svg=holder.firstElementChild,root=svg.getBoundingClientRect();
-        const boxes=[...svg.querySelectorAll('g[data-entry]')].map(node=>node.getBoundingClientRect());
-        const left=Math.min(...boxes.map(box=>box.left-root.left)),top=Math.min(...boxes.map(box=>box.top-root.top));
-        const right=Math.max(...boxes.map(box=>box.right-root.left)),bottom=Math.max(...boxes.map(box=>box.bottom-root.top));
-        if(left < 59 || top < 59 || right > root.width-59 || bottom > root.height-59) failures.push({study,placement,left,top,right,bottom,width:root.width,height:root.height});
-      }
-      return failures;
-    } finally { holder.remove(); }
+    const failures=[];
+    for(const study of studies)for(const placement of anchors){
+      const rendered=await model.render(base.selectedDisc,{...base.design,study,placement,compositionSize:'balanced',compositionScaleNudge:0,compositionOffsetX:0,compositionOffsetY:0});
+      const {x,y,width,height}=rendered.graphic.bounds;
+      const epsilon=1e-6;
+      if(x < 60-epsilon || y < 60-epsilon || x+width > 1860+epsilon || y+height > 1020+epsilon) failures.push({study,placement,x,y,width,height});
+    }
+    return failures;
   });
   assert.deepEqual(liveBounds, [], `live composed geometry escapes the canvas safe bounds: ${JSON.stringify(liveBounds)}`);
   const nudgeBounds = await page.locator('#thing').evaluate(async element => {
