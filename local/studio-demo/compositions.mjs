@@ -23,7 +23,7 @@ export const compositionStudies=Object.freeze([
   {id:'upright-tag',name:'Upright tag',note:'A compact vertical tag: grouped facts, centered specimen, then the four numbers across its foot.',composition:{
     width:380,height:350,art:{x:115,y:98,w:150,h:150},header:header(22,18,336,{mold:32,meta:21}),numbers:numbers(18,254,344,74,{h:86}),
     surfaces:[panel(0,0,380,350,'background',24),panel(22,90,336,2,'accent',0)]}},
-  {id:'crest',name:'Crest',preferredSize:'full-width',note:'The disc rises above the card silhouette. A wide pedestal carries the shared header and numbers.',composition:{
+  {id:'crest',name:'Crest',note:'The disc rises above the card silhouette. A wide pedestal carries the shared header and numbers.',composition:{
     width:650,height:350,art:{x:240,y:0,w:170,h:170},header:header(22,170,606,{mold:34}),numbers:numbers(18,242,614,74,{h:78}),
     surfaces:[panel(0,150,650,200,'background',18),{shape:'circle',cx:325,cy:85,r:85,fill:'accent'},panel(22,232,606,2,'accent',0)]}},
   {id:'edge-crop',name:'Edge crop',note:'The artwork becomes a close crop along the edge, giving the pattern more presence than the disc outline.',composition:{
@@ -86,11 +86,35 @@ export function compositionLayers({definition}){
       }})};
   });
 }
+function unionBounds(placements,scale=1){
+  if(!placements.length)return {x:0,y:0,width:0,height:0};
+  const left=Math.min(...placements.map(({x})=>x)),top=Math.min(...placements.map(({y})=>y));
+  const right=Math.max(...placements.map(({x,card})=>x+card.width*scale)),bottom=Math.max(...placements.map(({y,card})=>y+card.height*scale));
+  return {x:left,y:top,width:right-left,height:bottom-top};
+}
+function localLayerEntries(scene,layers){
+  const base=scene.placements[0];
+  if(!base)return [];
+  return [{card:base.card,x:0,y:0},...layers.map(layer=>({card:layer.card,x:layer.x,y:layer.y}))];
+}
 export function layeredCompositionScene({scene,layers}){
-  const origin=scene.placements[0];
-  return {...scene,layers,placements:[...layers.map(layer=>({card:layer.card,x:origin.x+layer.x*scene.scale,y:origin.y+layer.y*scene.scale})),...scene.placements]};
+  const origin=scene.placements[0],entries=localLayerEntries(scene,layers);
+  if(!origin||!entries.length)return {...scene,layers};
+  const local=unionBounds(entries),safe=scene.safe;
+  if(safe){
+    const requested=Math.max(0,Number(scene.scale)||1),scale=Math.min(requested,safe.width/local.width,safe.height/local.height),anchor=scene.compositionAnchor??'bottom-left';
+    const xBase=anchor==='bottom-center'?safe.x+(safe.width-local.width*scale)/2-local.x*scale:anchor.endsWith('right')?safe.x+safe.width-local.x*scale-local.width*scale:safe.x-local.x*scale;
+    const yBase=anchor.startsWith('top')?safe.y-local.y*scale:safe.y+safe.height-local.y*scale-local.height*scale;
+    const x=xBase+(Number(scene.compositionOffsetX)||0),y=yBase+(Number(scene.compositionOffsetY)||0);
+    const placed=entries.map(entry=>({...entry,x:x+entry.x*scale,y:y+entry.y*scale,scale})),placements=[...placed.slice(1),placed[0]];
+    return {...scene,layers,scale,placements,bounds:unionBounds(placements,scale)};
+  }
+  const placed=entries.map(entry=>({...entry,x:origin.x+entry.x*scene.scale,y:origin.y+entry.y*scene.scale,scale:scene.scale})),placements=[...placed.slice(1),placed[0]];
+  return {...scene,layers,placements,bounds:unionBounds(placements,scene.scale)};
 }
 export function layeredCompositionPreview({card,layers}){
   const scene={width:card.width,height:card.height,scale:1,cards:[card],placements:[{card,x:0,y:0}],bounds:{x:0,y:0,width:card.width,height:card.height},warnings:card.warnings};
-  return materializeOverlay({scene:layeredCompositionScene({scene,layers})});
+  const layered=layeredCompositionScene({scene,layers}),padding=8,union=layered.bounds;
+  const placements=layered.placements.map(item=>({...item,x:item.x-union.x+padding,y:item.y-union.y+padding}));
+  return materializeOverlay({scene:{...layered,width:union.width+padding*2,height:union.height+padding*2,placements,bounds:{x:padding,y:padding,width:union.width,height:union.height}}});
 }

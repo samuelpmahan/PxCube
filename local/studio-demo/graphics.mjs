@@ -148,7 +148,7 @@ export function canvasScene({card,frame,design}) {
   const centerShift=anchor==='bottom-center'?(base.safe.x+(base.safe.width-base.bounds.width)/2-base.bounds.x):0;
   const dx=centerShift+(Number(design.compositionOffsetX)||0),dy=Number(design.compositionOffsetY)||0;
   const placements=base.placements.map(item=>({...item,x:item.x+dx,y:item.y+dy}));
-  return {...base,placements,bounds:{...base.bounds,x:base.bounds.x+dx,y:base.bounds.y+dy}};
+  return {...base,compositionAnchor:anchor,compositionOffsetX:Number(design.compositionOffsetX)||0,compositionOffsetY:Number(design.compositionOffsetY)||0,placements,bounds:{...base.bounds,x:base.bounds.x+dx,y:base.bounds.y+dy}};
 }
 export const calculations = {
   'fn.studio.reorderSelection':({context,view,from,to})=>reorderBag({bag:createBag({id:'draft',name:context.name||'Draft',selection:context.selection,rows:view.rows}),discId:view.rows.find(row=>row.address===context.selection[from]).disc.id,toIndex:to}).versions.map(v=>v.address),

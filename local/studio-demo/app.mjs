@@ -13,7 +13,7 @@ const storageRoot=`pxcube.demo.v1:${config.id}`;
 const mailbox='pxcube.demo.v1:handoff:creategraphics-to-exportgraphics';
 const owner=createMockMounts({storage:localStorage,key:storageRoot+':mounts',seedIdentity:config.seedIdentity});
 let previewBackground='scene';
-let active,model,result,query='',chosenCapture=null,busy=false,queue=Promise.resolve(),createStep='choose';
+let active,model,result,query='',chosenCapture=null,busy=false,queue=Promise.resolve(),createStep='choose',studySelection=null;
 const pretty=value=>JSON.stringify(value,(_key,item)=>typeof item==='function'?'[Calculation]':item,2);
 const say=(text,error=false)=>{$('status').textContent=text;$('status').className=error?'error':'';};
 function run(action){queue=queue.then(async()=>{busy=true;try{await action();}catch(error){say(String(error),true);}finally{busy=false;}});return queue;}
@@ -91,17 +91,13 @@ async function drawSpotlight(){
   $('compare-cards').onclick=()=>run(async()=>{
     say('Composing nine directions from this disc…');
     const candidates=await model.studyCards();
-    $('study-cards').innerHTML=candidates.map(({study,graphic},i)=>`<button class="study-card" data-study="${esc(study.id)}" aria-label="Use ${esc(study.name)}. ${esc(study.note)}" aria-pressed="${study.id===(model.context.design.study??defaultStudy)}"><span class="study-name">${i+1} · ${esc(study.name)}</span><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(graphic.svg)}" alt="${esc(study.name)} card"><span class="study-choice">${graphic.width} × ${graphic.height} · ${study.id===(model.context.design.study??defaultStudy)?'Current layout':'Try this layout'}</span></button>`).join('');
-    const detailStudy=allCardStudies.find(item=>item.id===(model.context.design.study??defaultStudy));
-    $('study-detail').textContent=detailStudy?`${detailStudy.name}: ${detailStudy.note}`:'';
-    $('study-cards').querySelectorAll('[data-study]').forEach(button=>button.onfocus=()=>{const study=allCardStudies.find(item=>item.id===button.dataset.study);if(study)$('study-detail').textContent=`${study.name}: ${study.note}`;});
+    studySelection=model.context.design.study??defaultStudy;
+    const renderStudySelection=()=>{const study=allCardStudies.find(item=>item.id===studySelection);$('study-cards').querySelectorAll('[data-study]').forEach(button=>{const selected=button.dataset.study===studySelection;button.setAttribute('aria-pressed',String(selected));const preview=candidates.find(item=>item.study.id===button.dataset.study);if(preview)button.querySelector('.study-choice').textContent=`${preview.graphic.width} × ${preview.graphic.height} · ${selected?'Selected':'Select this layout'}`;});if(study)$('study-detail-copy').textContent=`${study.name}: ${study.note}`;};
+    $('study-cards').innerHTML=candidates.map(({study,graphic},i)=>`<button type="button" class="study-card" data-study="${esc(study.id)}" aria-label="Use ${esc(study.name)}. ${esc(study.note)}" aria-pressed="${study.id===studySelection}"><span class="study-name">${i+1} · ${esc(study.name)}</span><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(graphic.svg)}" alt="${esc(study.name)} card"><span class="study-choice">${graphic.width} × ${graphic.height} · ${study.id===studySelection?'Selected':'Select this layout'}</span></button>`).join('');
+    renderStudySelection();
+    $('study-cards').querySelectorAll('[data-study]').forEach(button=>{button.onfocus=()=>{studySelection=button.dataset.study;renderStudySelection();};button.onclick=()=>{studySelection=button.dataset.study;renderStudySelection();};});
+    $('use-study').onclick=()=>run(async()=>{const nextStudy=allCardStudies.find(item=>item.id===studySelection);if(!nextStudy)return;await model.patch({design:{...model.context.design,study:nextStudy.id,...(nextStudy?.preferredSize?{compositionSize:nextStudy.preferredSize}:{})}});createStep='verify';$('card-study').close();await drawCreate();say(`Trying ${nextStudy.name}. Keep it when you like it.`);});
     $('card-study').showModal();
-    $('study-cards').querySelectorAll('[data-study]').forEach(button=>button.onclick=()=>run(async()=>{
-      const nextStudy=allCardStudies.find(item=>item.id===button.dataset.study);
-      await model.patch({design:{...model.context.design,study:button.dataset.study,...(nextStudy?.preferredSize?{compositionSize:nextStudy.preferredSize}:{})}});
-      createStep='verify';
-      $('card-study').close();await drawCreate();say(`Trying ${allCardStudies.find(item=>item.id===button.dataset.study).name}. Keep it when you like it.`);
-    }));
     say('Nine compositions ready. Choose a silhouette and try it over the video.');
   });
   $('graphic-disc').onchange=()=>{const selectedDisc=$('graphic-disc').value;run(async()=>{await model.patch({selectedDisc});await drawCreate();});};

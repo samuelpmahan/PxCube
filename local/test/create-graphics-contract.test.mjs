@@ -41,7 +41,7 @@ test('CreateGraphics keeps selection, reversible controls, and explicit Keep in 
   assert.match(css, /#card-study\{[^}]*overflow:hidden/);
   assert.match(css, /#study-cards\{[^}]*grid-template-rows:repeat\(3/);
   assert.match(css, /\.study-card\{[^}]*grid-template-rows:auto minmax\(0,1fr\) auto/);
-  assert.match(index, /id="study-detail"/);
+  assert.match(index, /id="study-detail-copy"/);
   assert.doesNotMatch(app, /class="study-note"/);
   assert.match(css, /\.study-card\[aria-pressed=true\]/);
 });
@@ -52,13 +52,15 @@ test('CreateGraphics exposes discrete geometry tuning in the shared render calcu
   }
   assert.match(app, /Bottom center · lower third/);
   assert.match(app, /Assisted preset first; exact percentage and export-pixel nudges/);
-  assert.match(compositions, /id:'crest',[^\n]*preferredSize:'full-width'/);
+  assert.doesNotMatch(compositions, /id:'crest',[^\n]*preferredSize:'full-width'/);
   assert.match(graphics, /compositionSizeStudies/);
   assert.match(graphics, /compositionScaleNudges/);
   assert.match(graphics, /compositionOffsetNudges/);
   assert.match(graphics, /anchor==='bottom-center'\?'bottom-left':anchor/);
   assert.match(graphics, /Number\(design\.compositionOffsetX\)\|\|0/);
   assert.doesNotMatch(app, /type="range"[^>]*composition/);
+  assert.match(index, /id="use-study"[^>]*>Use this composition/);
+  assert.match(app, /renderStudySelection/);
 });
 
 test('ExportGraphics keeps one immutable capture and one explicit browser download decision visible', () => {

@@ -65,6 +65,21 @@ try {
     for (const box of text) assert.ok(box.left >= tile.left && box.right <= tile.right && box.top >= tile.top && box.bottom <= tile.bottom);
     for (const box of text.filter((_, i) => i === 0 || i === 1)) assert.ok(box.bottom <= image.top || box.top >= image.bottom, 'study text intersects image');
   }
+  const svgBounds = await frame.locator('#study-cards .study-card img').evaluateAll(images => images.map(image => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const source = decodeURIComponent(image.src.split(',').slice(1).join(','));
+    svg.innerHTML = source.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+    const root = new DOMParser().parseFromString(source, 'image/svg+xml').documentElement;
+    const width = Number(root.getAttribute('width')), height = Number(root.getAttribute('height'));
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`); svg.setAttribute('width', width); svg.setAttribute('height', height);
+    svg.style.cssText = 'position:fixed;left:-10000px;top:-10000px'; document.body.append(svg);
+    const box = [...svg.children].reduce((union, node) => { const b = node.getBBox(); if (!union) return { x:b.x, y:b.y, right:b.x+b.width, bottom:b.y+b.height }; return { x:Math.min(union.x,b.x), y:Math.min(union.y,b.y), right:Math.max(union.right,b.x+b.width), bottom:Math.max(union.bottom,b.y+b.height) }; }, null);
+    svg.remove(); return { width, height, box };
+  }));
+  for (const { width, height, box } of svgBounds) {
+    assert.ok(width > 0 && height > 0 && box, 'study SVG has no renderable bounds');
+    assert.ok(box.x >= -2 && box.y >= -2 && box.right <= width + 2 && box.bottom <= height + 2, `study SVG escapes viewBox: ${JSON.stringify({ width, height, box })}`);
+  }
   assert.equal(await frame.locator('#card-study').evaluate(dialog => getComputedStyle(dialog).overflow), 'hidden');
   assert.equal(await frame.locator('#study-cards').evaluate(grid => getComputedStyle(grid).overflow), 'visible');
   const selected = frame.locator('#study-cards .study-card[aria-pressed="true"]');
@@ -92,19 +107,57 @@ try {
   checks.push('nine authentic rendered compositions are directly comparable in one viewport');
 
   await frame.locator('#study-cards .study-card').filter({ hasText: 'Crest' }).click();
+  assert.equal(await frame.locator('#card-study').isVisible(), true, 'choosing a study keeps the comparison modal open');
+  assert.match(await frame.locator('#study-detail-copy').textContent(), /Crest/);
+  await frame.locator('#card-study[open]').waitFor();
+  assert.equal(await frame.locator('#study-cards .study-card[aria-pressed="true"]').count(), 1);
+  assert.equal(await frame.locator('#composition-size').inputValue(), 'balanced');
+  assert.match(await frame.locator('#study-cards .study-card[aria-pressed="true"] .study-choice').textContent(), /Selected/);
+  const liveBounds = await page.locator('#thing').evaluate(async element => {
+    const model = element.contentWindow.pxCubeDemo.model;
+    const base = model.context;
+    const studies = ['broadcast-rail','split-ticket','score-slip','floating-orbit','caption-ribbon','upright-tag','crest','edge-crop','number-plate'];
+    const anchors = ['top-left','top-right','bottom-left','bottom-center','bottom-right'];
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:1px;height:1px;overflow:hidden;';
+    document.body.append(holder);
+    try {
+      const failures=[];
+      for(const study of studies)for(const placement of anchors){
+        const rendered=await model.render(base.selectedDisc,{...base.design,study,placement,compositionSize:'balanced',compositionScaleNudge:0,compositionOffsetX:0,compositionOffsetY:0});
+        holder.innerHTML=rendered.graphic.svg;
+        const svg=holder.firstElementChild,root=svg.getBoundingClientRect();
+        const boxes=[...svg.querySelectorAll('g[data-entry]')].map(node=>node.getBoundingClientRect());
+        const left=Math.min(...boxes.map(box=>box.left-root.left)),top=Math.min(...boxes.map(box=>box.top-root.top));
+        const right=Math.max(...boxes.map(box=>box.right-root.left)),bottom=Math.max(...boxes.map(box=>box.bottom-root.top));
+        if(left < 59 || top < 59 || right > root.width-59 || bottom > root.height-59) failures.push({study,placement,left,top,right,bottom,width:root.width,height:root.height});
+      }
+      return failures;
+    } finally { holder.remove(); }
+  });
+  assert.deepEqual(liveBounds, [], `live composed geometry escapes the canvas safe bounds: ${JSON.stringify(liveBounds)}`);
+  const nudgeBounds = await page.locator('#thing').evaluate(async element => {
+    const model=element.contentWindow.pxCubeDemo.model,base=model.context,design={...base.design,study:'crest',placement:'bottom-center',compositionSize:'balanced',compositionScaleNudge:0};
+    const neutral=await model.render(base.selectedDisc,{...design,compositionOffsetX:0,compositionOffsetY:0});
+    const nudged=await model.render(base.selectedDisc,{...design,compositionOffsetX:20,compositionOffsetY:-20});
+    return {neutral:neutral.graphic.bounds,nudged:nudged.graphic.bounds};
+  });
+  assert.equal(Math.round(nudgeBounds.nudged.x-nudgeBounds.neutral.x),20,'X nudge moves the complete composition by 20 export pixels');
+  assert.equal(Math.round(nudgeBounds.nudged.y-nudgeBounds.neutral.y),-20,'Y nudge moves the complete composition by -20 export pixels');
+  await frame.locator('#use-study').click();
   await frame.locator('#card-study').waitFor({ state: 'hidden' });
   await frame.locator('#preview svg').waitFor();
   await frame.locator('#graphic-title').waitFor();
   assert.equal(await frame.locator('.create-workspace').count(), 1);
   assert.equal(await frame.locator('#preview svg').getAttribute('width'), '1920');
   assert.match(await frame.locator('.choice-summary').textContent(), /Crest/);
-  assert.equal(await frame.locator('#composition-size').inputValue(), 'full-width');
+  assert.equal(await frame.locator('#composition-size').inputValue(), 'balanced');
   await frame.locator('#placement').selectOption('bottom-center');
   await frame.locator('#composition-scale-nudge').selectOption('-5');
   await frame.locator('#composition-offset-x').selectOption('20');
   await frame.locator('#composition-offset-y').selectOption('-20');
   await frame.locator('#preview svg').waitFor();
-  assert.match(await frame.locator('#preview svg').innerHTML(), /scale\(2\.565/);
+  assert.match(await frame.locator('#preview svg').innerHTML(), /scale\(1\.9474/);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await frame.locator('.mobile-step-nav').count(), 1);
   assert.equal(await frame.locator('[data-create-step="verify"]').getAttribute('aria-selected'), 'true');
