@@ -1,4 +1,4 @@
-import { checkpointFor, recordReferenceKey, validateWorkItem, } from "./work-items.js";
+import { checkpointFor, recordReferenceKey, refinementProblems, validateWorkItem, } from "./work-items.js";
 import { calculationId, createPxC, readPart, registerCalculation, } from "./pxc.js";
 import { runPql } from "./pql.js";
 import { composePcr, definePcr } from "./pcr.js";
@@ -172,7 +172,8 @@ function baseBucket(item, verified, accepted, promoted) {
 }
 /** First PxC calculation: assess only evidence explicitly named by an item. */
 export function assessWorkItems(items, facts = {}) {
-    return [...items]
+    const graphErrors = refinementProblems(items);
+    const assessed = [...items]
         .sort((a, b) => a.id.localeCompare(b.id))
         .map((item) => {
         const shapeErrors = validateWorkItem(item);
@@ -185,6 +186,7 @@ export function assessWorkItems(items, facts = {}) {
         const blockers = [...item.blockers];
         if (shapeErrors.length)
             blockers.push(...shapeErrors);
+        blockers.push(...graphErrors.filter((error) => error.startsWith(`${item.id}:`)));
         if (available === "unavailable")
             blockers.push("implementation/material surface unavailable");
         if (available === "unknown")
@@ -211,6 +213,36 @@ export function assessWorkItems(items, facts = {}) {
             synthetic,
         };
     });
+    const byItem = new Map(items.map((item) => [item.id, item]));
+    const byAssessment = new Map(assessed.map((item) => [item.itemId, item]));
+    const progress = (id, visiting = new Set()) => {
+        const item = byItem.get(id);
+        if (!item || visiting.has(id)) return "incomplete";
+        if (!item.refinement) return item.status === "review" ? "reviewable" : "incomplete";
+        const next = new Set(visiting).add(id);
+        const children = item.refinement.children ?? [];
+        if (!children.length || children.some((child) => !byItem.has(child))) return "incomplete";
+        if (item.refinement.mode === "combine") {
+            return children.every((child) => progress(child, next) === "reviewable") ? "reviewable" : "incomplete";
+        }
+        if (item.refinement.mode === "compare") {
+            const selections = Object.values(item.refinement.selections ?? {});
+            return selections.length > 0 && selections.every((child) => children.includes(child) && progress(child, next) === "reviewable")
+                ? "reviewable" : "incomplete";
+        }
+        return "incomplete";
+    };
+    for (const item of items) {
+        if (!item.refinement) continue;
+        const assessment = byAssessment.get(item.id);
+        assessment.substate = {
+            mode: item.refinement.mode,
+            state: progress(item.id),
+            children: (item.refinement.children ?? []).map((id) => ({ id, state: progress(id, new Set([item.id])) })),
+            ...(item.refinement.mode === "compare" ? { selections: item.refinement.selections ?? {} } : {}),
+        };
+    }
+    return assessed;
 }
 function detectCycles(items) {
     const ids = new Set(items.map((item) => item.id));
@@ -336,7 +368,8 @@ function fingerprint(value) {
 function cardLabel(item, assessment) {
     const synthetic = assessment.synthetic ? " · synthetic fixture" : "";
     const agent = item.agent ? ` · agent=${item.agent}` : "";
-    return `${item.id} · ${item.outcome} · ${assessment.bucket} · activity=${item.status}${agent} · target=${item.target.kind}:${item.target.identity} · execution=[${assessment.executionRefs.join(",")}] · inspection=[${assessment.inspectionRefs.join(",")}]${synthetic}`;
+    const refinement = assessment.substate ? ` · ${assessment.substate.mode}=${assessment.substate.state} [${assessment.substate.children.map(({ id, state }) => `${id}:${state}`).join(",")}]${assessment.substate.mode === "compare" ? ` selections=${JSON.stringify(assessment.substate.selections)}` : ""}` : "";
+    return `${item.id} · ${item.outcome} · ${assessment.bucket} · activity=${item.status}${agent} · target=${item.target.kind}:${item.target.identity}${refinement} · execution=[${assessment.executionRefs.join(",")}] · inspection=[${assessment.inspectionRefs.join(",")}]${synthetic}`;
 }
 export function renderBoardMarkdown(items, assessments, graph) {
     const byId = new Map(items.map((item) => [item.id, item]));

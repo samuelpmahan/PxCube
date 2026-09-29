@@ -41,6 +41,12 @@ const refList = (refs: readonly string[]): string => refs.length
   ? `<ul class="refs">${refs.map((ref) => { const href = safeHref(ref); return `<li>${href ? `<a href="${attr(href)}"><code>${esc(ref)}</code></a>` : `<code>${esc(ref)}</code>`}</li>`; }).join("")}</ul>`
   : `<span class="muted">none</span>`;
 const mark = (yes: boolean, label: string): string => `<span class="status ${yes ? "yes" : "no"}">${yes ? "✓" : "○"} ${esc(label)}</span>`;
+const refinementHtml = (substate: BoardModel["assessments"][number]["substate"]): string => {
+  if (!substate) return "";
+  const children = substate.children.map(({ id, state }) => `<li><code>${esc(id)}</code>: ${esc(state)}</li>`).join("");
+  const selections = Object.entries(substate.selections ?? {}).map(([context, id]) => `<li>${esc(context)}: <code>${esc(id)}</code></li>`).join("");
+  return `<div class="refinement"><b>${esc(substate.mode)}: ${esc(substate.state)}</b><ul>${children}</ul>${selections ? `<b>Selections</b><ul>${selections}</ul>` : ""}</div>`;
+};
 const scopeRank: Record<MgmScope, number> = { minimal: 1, goldilocks: 2, maximal: 3 };
 
 function boardTab(items: readonly WorkItem[], board: BoardModel): string {
@@ -53,6 +59,7 @@ function boardTab(items: readonly WorkItem[], board: BoardModel): string {
         <div class="card-head"><h3>${esc(item.id)} <small>${esc(a.bucket)}</small></h3><span class="activity">${esc(item.status)}${item.agent ? ` · agent=${esc(item.agent)}` : ""}</span></div>
         <p>${esc(item.outcome)}</p>
         <p class="target"><b>Target:</b> <code>${esc(item.target.kind)}:${esc(item.target.identity)}</code></p>
+        ${refinementHtml(a.substate)}
         <div class="statuses">${mark(a.verified, "verified")}${mark(a.accepted, "accepted")}${mark(a.promoted, "promoted")}</div>
         <div class="evidence"><div><b>Execution</b>${refList(a.executionRefs)}</div><div><b>Inspection</b>${refList(a.inspectionRefs)}</div></div>
         ${a.blockers.length ? `<p class="blockers"><b>Blocked:</b> ${esc(a.blockers.join("; "))}</p>` : ""}

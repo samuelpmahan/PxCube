@@ -1,6 +1,6 @@
 import { open, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { updateWorkItem, validateWorkItem, workItemRevision } from "./work-items.js";
+import { updateWorkItem, validateWorkItem, refinementProblems, workItemRevision } from "./work-items.js";
 function itemDirectory(root) { return join(root, ".neat", "items"); }
 function factsPath(root) { return join(root, ".neat", "facts.json"); }
 function itemPath(root, id) {
@@ -23,13 +23,14 @@ export async function readSnapshot(root) {
 }
 export function snapshotProblems(snapshot) {
     const ids = new Set();
-    return snapshot.items.flatMap((item) => {
+    const shape = snapshot.items.flatMap((item) => {
         const errors = validateWorkItem(item);
         if (ids.has(item.id))
             errors.push(`${item.id}: duplicate item id`);
         ids.add(item.id);
         return errors;
     });
+    return [...shape, ...refinementProblems(snapshot.items)];
 }
 /**
  * A short exclusive sibling lock makes the content-fingerprint comparison a

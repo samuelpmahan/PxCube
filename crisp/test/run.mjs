@@ -257,6 +257,69 @@ function sha256File(path) {
 }
 
 // 13. base cycles are refused, not looped
+// A typed overlay resolves the Tidy type after composition, retaining both
+// base provenance and its own registry identity through packaging.
+{
+  const repo = freshDir();
+  const experiences = join(repo, 'experiences');
+  const base = join(experiences, 'base');
+  const overlay = join(experiences, 'overlay');
+  mkdirSync(join(repo, '.tidy'), { recursive: true });
+  mkdirSync(base, { recursive: true });
+  mkdirSync(overlay, { recursive: true });
+  const definition = (id, version, build, extra = {}) => ({
+    root: `experiences/${id}`, version,
+    experience: { title: id, entry: 'index.html', mounts: [], build, outDir: 'dist', ...extra },
+  });
+  writeFileSync(join(repo, '.tidy', 'manifest.json'), JSON.stringify({ schemaVersion: 1, types: {
+    'typed-base': definition('base', '0.1.0', 'mkdir -p dist && cp index.html dist/', { demo: { common: 'base', side: 'base' } }),
+    'typed-overlay': definition('overlay', '0.2.0', 'mkdir -p dist && cp index.html dist/', { title: 'Typed overlay', demo: { side: 'overlay' } }),
+    'wrong-root': definition('base', '0.3.0', 'mkdir -p dist && cp index.html dist/'),
+  } }));
+  writeFileSync(join(base, 'experience.json'), JSON.stringify({ tidy: { type: 'typed-base' } }));
+  writeFileSync(join(base, 'index.html'), '<h1>base</h1>');
+  writeFileSync(join(overlay, 'index.html'), '<h1>overlay</h1>');
+  const writeOverlay = value => writeFileSync(join(overlay, 'experience.json'), JSON.stringify(value));
+  writeOverlay({ tidy: { type: 'typed-overlay' }, base: 'base', patches: [{ demo: { checked: true } }] });
+
+  const r = await runCrisp(['resolve', overlay], repo);
+  check('typed-compose/resolve succeeds', r.code === 0, r.stderr);
+  const resolved = JSON.parse(r.stdout);
+  check('typed-compose/merge and patch preserve fields',
+    resolved.demo.common === 'base' && resolved.demo.side === 'overlay' && resolved.demo.checked === true,
+    JSON.stringify(resolved.demo));
+  check('typed-compose/identity and provenance',
+    resolved.id === 'overlay' && resolved.version === '0.2.0' &&
+    resolved.manifestSource.type === 'typed-overlay' &&
+    resolved.composition.baseManifestSource.type === 'typed-base' &&
+    resolved.composition.resolvedType === 'typed-overlay', JSON.stringify(resolved));
+  const packaged = await runCrisp(['package', overlay], repo);
+  check('typed-compose/package succeeds', packaged.code === 0, packaged.stderr);
+  const receipt = readJson(join(overlay, '.crisp', 'receipt.json'));
+  check('typed-compose/receipt retains resolved type and base',
+    receipt.manifestSource.type === 'typed-overlay' &&
+    receipt.composition.resolvedVersion === '0.2.0' &&
+    receipt.composition.baseManifestSource.type === 'typed-base' &&
+    receipt.composition.baseChunks.length === 1, JSON.stringify(receipt.composition));
+
+  for (const [name, input, message] of [
+    ['version patch', { tidy: { type: 'typed-overlay' }, base: 'base', patches: [{ version: '9.0.0' }] }, /typed patches cannot change/],
+    ['identity patch', { tidy: { type: 'typed-overlay' }, base: 'base', patches: [{ id: 'base' }] }, /typed patches cannot change/],
+    ['source patch', { tidy: { type: 'typed-overlay' }, base: 'base', patches: [{ manifestSource: { type: 'typed-base' } }] }, /typed patches cannot change/],
+    ['wrong root', { tidy: { type: 'wrong-root' }, base: 'base' }, /tidy root differs/],
+    ['patch without base', { tidy: { type: 'typed-overlay' }, patches: [{ title: 'Delta' }] }, /requires a base/],
+    ['cycle', { tidy: { type: 'typed-overlay' }, base: 'overlay' }, /base cycle/],
+  ]) {
+    writeOverlay(input);
+    const rejected = await runCrisp(['resolve', overlay], repo);
+    check(`typed-compose/reject ${name}`, rejected.code === 1 && message.test(rejected.stderr), rejected.stderr);
+  }
+  writeOverlay({ tidy: { type: 'typed-overlay' } });
+  const plain = await runCrisp(['resolve', overlay], repo);
+  check('typed-compose/typed-only remains supported', plain.code === 0 && JSON.parse(plain.stdout).composition === undefined, plain.stderr);
+}
+
+// 13. base cycles are refused, not looped
 {
   const dir = freshDir();
   for (const [name, base] of [['a', 'b'], ['b', 'a']]) {

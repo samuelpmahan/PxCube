@@ -349,6 +349,64 @@
       "sourceHash": "396951ad2c6fe86b81fb129035101eba3d6176c2f0f960dc3e4a3f7aa3e81d95",
       "sharedToolsHash": "73ba686a534d34024b121b2b8dacfa376922368f0109036d31de0f92a17aa524",
       "registeredAt": "2026-09-15T18:46:34.210Z"
+    },
+    "upload-disc-to-shelf-delta": {
+      "track": "exp",
+      "manifest": {
+        "title": "UploadDiscToShelf Delta",
+        "description": "Typed delta of UploadDiscToShelf with its own retained workspace and package receipt.",
+        "track": "exp",
+        "mounts": [
+          "studio"
+        ],
+        "entry": "index.html",
+        "outDir": "dist",
+        "build": "node build.mjs",
+        "sandbox": [
+          "allow-scripts",
+          "allow-same-origin",
+          "allow-downloads",
+          "allow-modals",
+          "allow-forms"
+        ],
+        "studio": {
+          "mode": "upload",
+          "sourceCommit": "6f7937bc1eebd22bf3135f50c9edf714b122902a",
+          "integration": "Legacy Studio model in an owning context. Additional dependency scan: studio-import.json.",
+          "interactive": "mock.upload-disc-to-shelf.*",
+          "tests": "mock.upload-disc-to-shelf.<iterator>.*",
+          "delta": "isolated-workspace-v1"
+        },
+        "storage": "Only mount-scoped local storage. Trusted same-origin code; not a security boundary.",
+        "id": "upload-disc-to-shelf-delta",
+        "version": "0.1.0",
+        "manifestSource": {
+          "path": ".tidy/manifest.json",
+          "type": "pxcube-upload-disc-to-shelf-delta",
+          "digest": "bca140d33f1e78a9d0671770482af2d608867577c894b0c9146258ce1e664081"
+        },
+        "composition": {
+          "base": "upload-disc-to-shelf",
+          "patches": [
+            {
+              "description": "Typed delta of UploadDiscToShelf with its own retained workspace and package receipt.",
+              "studio": {
+                "delta": "isolated-workspace-v1"
+              }
+            }
+          ],
+          "baseManifestSource": {
+            "path": ".tidy/manifest.json",
+            "type": "pxcube-upload-disc-to-shelf",
+            "digest": "6a6211212e4116f4f23d8633cc76c667c18787321e9c894eba708490238f6c66"
+          },
+          "resolvedType": "pxcube-upload-disc-to-shelf-delta",
+          "resolvedVersion": "0.1.0"
+        }
+      },
+      "sourceHash": "6b21eacdadcc11af68adc86754b5e66f032b2fca162f591469c49e04468d99d1",
+      "sharedToolsHash": "a088c567c212747f12449bf4aa94a40460d4581758763944a0e6424ffd3daa93",
+      "registeredAt": "2026-09-28T22:50:04.298Z"
     }
   }
 }

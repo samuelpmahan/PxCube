@@ -68,7 +68,7 @@ export function experienceIds(root = repoRoot) {
 
 function packageInputs(root, id) {
   // crisp's validator/mock facade are package-time inputs for every app.
-  const inputs = ['crisp', 'mock-pxc'];
+  const inputs = ['crisp', 'kompoze', 'mock-pxc'];
   const raw = rawManifest(root, id);
   // `.tidy/pxcube.json` is retained build evidence written by local/run.
   // Only the authored typed manifest belongs in an immutable package key.
@@ -77,6 +77,11 @@ function packageInputs(root, id) {
     inputs.push('local/build-studio.mjs', 'local/studio-sandbox', 'local/mock-mounts.mjs', 'local/experience-mount.mjs', 'local/scenarios.mjs', 'vendor/studio');
   }
   if (demoApps.has(id)) inputs.push('local/studio-demo', 'vendor/studio-renderer');
+  const base = raw.base;
+  if (base) {
+    if (!experienceIds(root).includes(base)) throw Error(`Missing composition base: ${base}`);
+    inputs.push(`experiences/${base}`, ...packageInputs(root, base));
+  }
   return [...new Set(inputs)].sort();
 }
 
@@ -145,7 +150,7 @@ function affectedFromFiles(root, files) {
   for (const file of files) {
     const direct = /^experiences\/([^/]+)\//.exec(file)?.[1];
     if (direct) { affect(direct, `experience source changed: ${file}`); continue; }
-    if (/^(crisp|mock-pxc)\//.test(file)) {
+    if (/^(crisp|kompoze|mock-pxc)\//.test(file)) {
       for (const id of ids) affect(id, `shared package runtime changed: ${file}`);
       continue;
     }

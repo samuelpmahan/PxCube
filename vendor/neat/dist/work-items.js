@@ -94,6 +94,22 @@ export function validateWorkItem(item) {
         if (dependency.item === item.id)
             errors.push(`${item.id}: self dependency`);
     }
+    if (item.refinement) {
+        const { mode, children, selections } = item.refinement;
+        if (mode !== "compare" && mode !== "combine") errors.push(`${item.id}: unknown refinement mode`);
+        if (!Array.isArray(children) || children.length === 0 || children.some((id) => typeof id !== "string" || !id)) {
+            errors.push(`${item.id}: refinement requires child item IDs`);
+        } else {
+            if (new Set(children).size !== children.length) errors.push(`${item.id}: duplicate refinement child`);
+            if (children.includes(item.id)) errors.push(`${item.id}: self refinement`);
+            if (mode === "compare" && children.length < 2) errors.push(`${item.id}: compare requires at least two candidates`);
+        }
+        if (mode === "combine" && selections !== undefined) errors.push(`${item.id}: combine cannot select candidates`);
+        if (selections !== undefined && (typeof selections !== "object" || Array.isArray(selections) || selections === null ||
+            Object.entries(selections).some(([context, selected]) => !context || typeof selected !== "string" || !children?.includes(selected)))) {
+            errors.push(`${item.id}: selections must name declared children by context`);
+        }
+    }
     for (const acceptance of item.acceptanceRefs) {
         if (!acceptance.human || !acceptance.subjectCommit || !acceptance.source) {
             errors.push(`${item.id}: acceptance reference is missing attribution or subject`);
@@ -105,4 +121,22 @@ export function validateWorkItem(item) {
         }
     }
     return errors;
+}
+/** Cross-item checks also run for `neat check`, before a board is rendered. */
+export function refinementProblems(items) {
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const errors = new Set();
+    const visit = (id, path) => {
+        if (path.includes(id)) {
+            errors.add(`${path[0]}: refinement cycle ${[...path.slice(path.indexOf(id)), id].join(" -> ")}`);
+            return;
+        }
+        const item = byId.get(id);
+        for (const child of item?.refinement?.children ?? []) {
+            if (!byId.has(child)) errors.add(`${id}: missing refinement child ${child}`);
+            else visit(child, [...path, id]);
+        }
+    };
+    for (const item of items) if (item.refinement) visit(item.id, []);
+    return [...errors].sort();
 }

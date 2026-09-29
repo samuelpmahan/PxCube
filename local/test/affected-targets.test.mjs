@@ -25,7 +25,7 @@ test('Studio source changes target its actual Studio consumers, not every Experi
   fs.appendFileSync(path.join(root, 'vendor/studio/upload-disc-to-shelf/style.css'), '\n/* target fixture */\n');
   git(root, ['add', '.']); git(root, ['commit', '-qm', 'studio']);
   const targets = await resolveTargets(root, { base });
-  assert.deepEqual(targets.filter((target) => target.affected).map((target) => target.id), ['build-bag', 'explore-shelf', 'on-course', 'upload-disc-to-shelf', 'your-shelf']);
+  assert.deepEqual(targets.filter((target) => target.affected).map((target) => target.id), ['build-bag', 'explore-shelf', 'on-course', 'upload-disc-to-shelf', 'upload-disc-to-shelf-delta', 'your-shelf']);
   fs.rmSync(root, { recursive: true, force: true });
 });
 test('a launcher-only change does not invalidate an Experience package', async () => {

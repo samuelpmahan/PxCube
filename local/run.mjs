@@ -73,7 +73,7 @@ export async function build(repo = root, { refreshRegistry = false, stagedRoot =
   const run = path.join(state, 'runs', runId), work = path.join(run, 'work'), assembly = path.join(run, 'assembly');
   try {
     fs.mkdirSync(work, { recursive: true }); fs.mkdirSync(path.join(assembly, 'experiences'), { recursive: true });
-    for (const folder of ['crisp', 'tidy', 'mock-pxc', 'launcher', 'local', 'vendor']) copyTree(path.join(repo, folder), path.join(work, folder));
+    for (const folder of ['crisp', 'kompoze', 'tidy', 'mock-pxc', 'launcher', 'local', 'vendor']) copyTree(path.join(repo, folder), path.join(work, folder));
     const toolsHash = hashes(work);
     const sharedToolsHash = sha(JSON.stringify(toolsHash));
     // Builds consume the same retained manifest snapshot as their source.

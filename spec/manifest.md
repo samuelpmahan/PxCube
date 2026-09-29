@@ -21,6 +21,9 @@ Each PxC app ships an `experience.json` (name kept for history; it declares any 
 
 ## Registration
 
+A Tidy-typed overlay can declare `{ "tidy": { "type": "..." }, "base": "sibling", "patches": [...] }`.
+Kompoze resolves the sibling base, merges the selected type's fields, then applies JSON merge patches in order. The selected type's root, id, version, and source digest remain authoritative; patches cannot change identity or resolution metadata. The resolved manifest names its type, version, base, and base type provenance in `composition`. CRISP packages the resolved manifest and records that lineage alongside the base and overlay chunks. A patch-only typed declaration must name a base. Existing typed references with only `tidy.type` keep their original behavior.
+
 `crisp register <app-dir>` snapshots the manifest into tidy's registry with a source hash and hands the caller a receipt. Re-registering updates the snapshot. Drift between the manifest file and the registry snapshot surfaces in the accordion as "changed since registration".
 
 ## Failure semantics

@@ -2,14 +2,16 @@
   "vendor/neat/README.md": {
     "commit": "be9a1ec7a13af9121a5725576126d6772cca52d5",
     "path": "README.md",
-    "sha256": "b70f5a13734a34efdbc6d25357b5c5be683313cee70f742e7c106e73119d195b",
-    "source": "neat"
+    "sha256": "13d45255dd6745d2333fbfdf13cf99c39f126a5ccf4ab120588941d4d895b77a",
+    "source": "neat",
+    "note": "Origin commit identifies the upstream neat snapshot; these exact shipped bytes include a PxCube-local refinement extension."
   },
   "vendor/neat/src/board.ts": {
     "commit": "be9a1ec7a13af9121a5725576126d6772cca52d5",
     "path": "src/board.ts",
-    "sha256": "7187cca31004a478f71924761d3bd3e14b33e41b1e4944fbc77f2e47e570038b",
-    "source": "neat"
+    "sha256": "a1809ea0c282996fbac8de7d6d9d633ea06b72acc99afe2b3841166ab4882140",
+    "source": "neat",
+    "note": "Origin commit identifies the upstream neat snapshot; these exact shipped bytes include a PxCube-local refinement extension."
   },
   "vendor/neat/src/cli.ts": {
     "commit": "be9a1ec7a13af9121a5725576126d6772cca52d5",
@@ -26,8 +28,9 @@
   "vendor/neat/src/io.ts": {
     "commit": "be9a1ec7a13af9121a5725576126d6772cca52d5",
     "path": "src/io.ts",
-    "sha256": "e2dacc0febad516213e52b67639b8b20a3ed84ecf60140bd45fcfba4b4eed997",
-    "source": "neat"
+    "sha256": "cd90961facc597a4c7e52bf66febc2795a90aed4e9bcb6d4e500c6ba5cc08cbd",
+    "source": "neat",
+    "note": "Origin commit identifies the upstream neat snapshot; these exact shipped bytes include a PxCube-local refinement extension."
   },
   "vendor/neat/src/pcr.ts": {
     "commit": "be9a1ec7a13af9121a5725576126d6772cca52d5",
@@ -50,14 +53,16 @@
   "vendor/neat/src/report.ts": {
     "commit": "be9a1ec7a13af9121a5725576126d6772cca52d5",
     "path": "src/report.ts",
-    "sha256": "1659ffc69ef05359ab143817d029f5f5b35b658afb6857362ccbae113bca5782",
-    "source": "neat"
+    "sha256": "8826c5338efbf9703f5ff965a53b6ae10c5e579dffbdcce6451c418cd6fbf7ff",
+    "source": "neat",
+    "note": "Origin commit identifies the upstream neat snapshot; these exact shipped bytes include a PxCube-local refinement extension."
   },
   "vendor/neat/src/work-items.ts": {
     "commit": "be9a1ec7a13af9121a5725576126d6772cca52d5",
     "path": "src/work-items.ts",
-    "sha256": "e076e190ea12a2105aa270e4d3d6e5ef883fc53f914a5f812c4ad30535bf1fc0",
-    "source": "neat"
+    "sha256": "c16aa432a973be6a5f8d4a9d33a21280f4f922c6577dcd2feba99c9c6d57fd09",
+    "source": "neat",
+    "note": "Origin commit identifies the upstream neat snapshot; these exact shipped bytes include a PxCube-local refinement extension."
   },
   "vendor/neat/tick-part-checklist.js": {
     "note": "Published checklist component, vendored for same-origin/offline use. PxCube appends a checked shell patch for bottom-right placement and pointer isolation; this hash pins the exact shipped bytes.",

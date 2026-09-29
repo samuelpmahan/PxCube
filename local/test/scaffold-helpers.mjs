@@ -23,7 +23,7 @@ export const spec = (id = 'build-bag') => ({
 
 export function workspace() {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'pxcube-scaffold-'));
-  for (const folder of ['local', 'tidy', 'vendor', 'crisp', 'mock-pxc', 'launcher']) {
+  for (const folder of ['local', 'tidy', 'vendor', 'crisp', 'kompoze', 'mock-pxc', 'launcher']) {
     fs.cpSync(path.join(root, folder), path.join(repo, folder), { recursive: true });
   }
   fs.mkdirSync(path.join(repo, '.tidy'));

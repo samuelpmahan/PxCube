@@ -1,6 +1,6 @@
 import { open, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { BoardFacts, WorkItem, WorkItemUpdatePatch, updateWorkItem, validateWorkItem, workItemRevision } from "./work-items.js";
+import { BoardFacts, WorkItem, WorkItemUpdatePatch, updateWorkItem, validateWorkItem, refinementProblems, workItemRevision } from "./work-items.js";
 
 export interface NeatSnapshot {
   root: string;
@@ -30,12 +30,13 @@ export async function readSnapshot(root: string): Promise<NeatSnapshot> {
 
 export function snapshotProblems(snapshot: NeatSnapshot): string[] {
   const ids = new Set<string>();
-  return snapshot.items.flatMap((item) => {
+  const shape = snapshot.items.flatMap((item) => {
     const errors = validateWorkItem(item);
     if (ids.has(item.id)) errors.push(`${item.id}: duplicate item id`);
     ids.add(item.id);
     return errors;
   });
+  return [...shape, ...refinementProblems(snapshot.items)];
 }
 
 /**

@@ -15,6 +15,19 @@ neat update EX-04 --expect <item-content-fingerprint> --patch claim.json
 
 An item targets an existing Calculation (`fn.*`), Tick (`tick.*` plus its composition/name), or PCR (`pcr.*`). It is not a second task hierarchy. A shared Calculation’s board impact is derived from the named composition’s `Ticks[].Calculations[]`.
 
+## Local PxCube refinement extension
+
+An optional `refinement` links a WorkItem to existing item IDs. Flat items continue to work unchanged. This is a PxCube-local extension to the pinned neat source snapshot; `../../vendor/SOURCES.json` retains the upstream origin commit and hashes the exact locally extended bytes.
+
+```json
+{"mode":"combine","children":["piece-a","piece-b"]}
+{"mode":"compare","children":["candidate-a","candidate-b"],"selections":{"browser":"candidate-a","mobile":"candidate-b"}}
+```
+
+Combine is `reviewable` when all its pieces are reviewable; otherwise it is `incomplete`. Compare is `reviewable` when each named context selects a reviewable candidate. It may leave other candidates active. Without a selection it stays `incomplete`; neat does not rank candidates. Nested Compare and Combine links work recursively. The board displays every direct child's derived state and named selections. `neat check` rejects missing children, cycles, duplicate child IDs, invalid modes, and invalid selections.
+
+A leaf becomes **reviewable** when its declared activity is `review`. This only describes work progress: no parent's verification, acceptance, promotion, or checkpoint is inferred from its children. The real PxCube `PXCUBE-upload-refinement-compare` item names the baseline and typed delta as alternatives and intentionally has no selected winner.
+
 The checked-in `fixtures/generic-project` fixture is intentionally synthetic. Run only the ordinary unit tests to inspect it; it proves the board buckets, guarded updates, independent acceptance, dependency blockers, cycles, and shared-calculation fanout without claiming execution, human acceptance, or Tidy promotion for a real project.
 
 Concrete project examples belong on their own implementation branch. The DiscStudio example is developed on `impl/DiscStudio`, branched from `main`, so it can be copied or yoinked into a project without making the reusable neat foundation project-specific.

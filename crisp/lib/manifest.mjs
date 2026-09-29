@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join, resolve, relative } from 'node:path';
 import { provideExperience } from '../../tidy/manifest.mjs';
+import { resolveTypedOverlay } from '../../kompoze/typed-overlay.mjs';
 
 export async function loadManifest(appDir, { providerRoot } = {}) {
   return resolveManifest(appDir, { providerRoot, seen: [] });
@@ -29,37 +30,49 @@ async function resolveManifest(appDir, { providerRoot, seen }) {
     throw new Error(`manifest: ${path} is not valid JSON: ${err.message}`);
   }
   if (manifest?.tidy) {
-    if (manifest.base !== undefined || manifest.patches !== undefined) {
-      throw new Error('manifest: tidy-typed experiences do not compose with base/patches yet');
+    if (!manifest.tidy || typeof manifest.tidy !== 'object' || Array.isArray(manifest.tidy) ||
+        Object.keys(manifest.tidy).length !== 1 || typeof manifest.tidy.type !== 'string' ||
+        Object.keys(manifest).some((key) => !['tidy', 'base', 'patches'].includes(key))) {
+      throw Error('manifest: a tidy reference may contain only tidy.type, base, and patches');
     }
-    if (Object.keys(manifest).length !== 1 || typeof manifest.tidy.type !== 'string') throw Error('manifest: a tidy reference must contain only tidy.type');
     const repo = resolve(appDir, '../..');
     const supplied = provideExperience(providerRoot ?? repo, manifest.tidy.type);
     if (relative(repo, resolve(appDir)) !== supplied.root) throw Error('manifest: tidy root differs from app directory');
-    return { ...supplied.manifest, manifestSource: { path: supplied.source, type: supplied.type, digest: supplied.digest } };
-  }
-  let base = null;
-  let baseId = null;
-  if (manifest.base !== undefined) {
-    if (typeof manifest.base !== 'string' || !/^[A-Za-z0-9_-]+$/.test(manifest.base)) {
-      throw new Error(`manifest: base must be a sibling experience directory name, got ${JSON.stringify(manifest.base)}`);
+    if (manifest.base === undefined && manifest.patches === undefined) {
+      return { ...supplied.manifest, manifestSource: { path: supplied.source, type: supplied.type, digest: supplied.digest } };
     }
-    const baseDir = join(appDir, '..', manifest.base);
-    if (seen.includes(baseDir)) {
-      throw new Error(`manifest: base cycle detected: ${[...seen, baseDir].join(' -> ')}`);
-    }
-    baseId = manifest.base;
-    base = await resolveManifest(baseDir, { providerRoot, seen: [...seen, appDir] });
+    if (manifest.base === undefined) throw Error('manifest: a typed overlay with patches requires a base');
+    const { base, baseId } = await loadBase(appDir, manifest.base, { providerRoot, seen });
+    const patches = validatePatches(manifest.patches);
+    return resolveTypedOverlay({ supplied, base, baseId, patches, mergePatch });
   }
-  const patches = manifest.patches ?? [];
-  if (!Array.isArray(patches) || patches.some((p) => p === null || typeof p !== 'object' || Array.isArray(p))) {
-    throw new Error('manifest: patches must be an array of JSON merge-patch objects');
-  }
+  const { base, baseId } = await loadBase(appDir, manifest.base, { providerRoot, seen });
+  const patches = validatePatches(manifest.patches);
   const { base: _b, patches: _p, ...own } = manifest;
   let resolved = base ? mergePatch(stripComposition(base), own) : { ...own };
   for (const patch of patches) resolved = mergePatch(resolved, patch);
   if (base) resolved.composition = { base: baseId, patches };
   return resolved;
+}
+
+async function loadBase(appDir, baseId, { providerRoot, seen }) {
+  if (baseId === undefined) return { base: null, baseId: null };
+  if (typeof baseId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(baseId)) {
+    throw new Error(`manifest: base must be a sibling experience directory name, got ${JSON.stringify(baseId)}`);
+  }
+  const baseDir = join(appDir, '..', baseId);
+  if (baseDir === appDir || seen.includes(baseDir)) {
+    throw new Error(`manifest: base cycle detected: ${[...seen, appDir, baseDir].join(' -> ')}`);
+  }
+  return { base: await resolveManifest(baseDir, { providerRoot, seen: [...seen, appDir] }), baseId };
+}
+
+function validatePatches(value) {
+  const patches = value ?? [];
+  if (!Array.isArray(patches) || patches.some((p) => p === null || typeof p !== 'object' || Array.isArray(p))) {
+    throw new Error('manifest: patches must be an array of JSON merge-patch objects');
+  }
+  return patches;
 }
 
 // The base's own composition block describes the base, not the overlay;

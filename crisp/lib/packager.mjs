@@ -244,6 +244,11 @@ export async function packageApp(appDir, { pxcPath } = {}) {
     composition: baseReceipt ? {
       base: manifest.composition.base,
       patches: manifest.composition.patches,
+      ...(manifest.composition.resolvedType ? {
+        resolvedType: manifest.composition.resolvedType,
+        resolvedVersion: manifest.composition.resolvedVersion,
+        baseManifestSource: manifest.composition.baseManifestSource,
+      } : {}),
       baseChunks: baseReceipt.chunks,
       // Paths the overlay supplied itself, shadowing the base cartridge.
       overridden: overlayOutputs.filter((p) => baseReceipt.chunks.some((c) => c.path === p)),
